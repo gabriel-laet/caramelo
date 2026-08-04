@@ -32,7 +32,11 @@ caramelo harvest senadores   # Senado API, legislaturas 55-57
 caramelo harvest votacoes    # Câmara bulk: 41k votações, 468k roll-call votes,
                              # 15k party orientations (2023-2026)
 caramelo harvest municipios  # IBGE: all 5,571 municípios + population
-caramelo harvest siconfi     # Tesouro RREO budget reports (default: 27 UFs)
+caramelo harvest siconfi     # Tesouro RREO budget reports (default: 27 UFs;
+                             # --municipios RR|all sweeps municípios, sharded
+                             # + resumable + rate-limited)
+caramelo harvest ceap        # 761k parliamentary expense receipts 2023-2026,
+                             # supplier CNPJs, 100% deputado-id join integrity
 caramelo resolve autores     # author-name -> person crosswalk (both chambers)
 ```
 
@@ -57,8 +61,9 @@ was probed live before inclusion).
 2. ~~Person-level author crosswalk (dual-chamber ids, homonyms split by UF)~~ ✅
 3. ~~Câmara bulk harvester: votações, votos, orientações~~ ✅
 4. ~~SICONFI + IBGE dimension tables~~ ✅
-5. CEAP expenses harvester (bulk lives on a separate endpoint)
-6. Full municipal SICONFI sweep (5,570 entes) with rate limiting
+5. ~~CEAP expenses harvester~~ ✅
+6. ~~Sharded/resumable municipal SICONFI sweep~~ ✅ (full 5,570-ente run is
+   an ops task for the scheduled pipeline)
 7. Git-scraping pipeline: harvest → diff → event log → webhooks
 8. REST API, then MCP server
 

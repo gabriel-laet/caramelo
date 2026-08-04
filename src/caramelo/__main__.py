@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> None:
     harvest = sub.add_parser("harvest", help="download and normalize a source")
     harvest.add_argument("source",
                          choices=["emendas", "deputados", "senadores",
-                                  "votacoes", "municipios", "siconfi"])
+                                  "votacoes", "municipios", "siconfi", "ceap"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -29,6 +29,8 @@ def main(argv: list[str] | None = None) -> None:
                          help="siconfi: bimonthly period (1-6)")
     harvest.add_argument("--entes", nargs="+", default=None,
                          help="siconfi: IBGE ente codes (default: 27 UFs)")
+    harvest.add_argument("--municipios", default=None, metavar="UF|all",
+                         help="siconfi: sweep municípios of one UF, or 'all'")
 
     resolve = sub.add_parser("resolve", help="build entity-resolution tables")
     resolve.add_argument("entity", choices=["autores"])
@@ -53,8 +55,18 @@ def main(argv: list[str] | None = None) -> None:
         ibge.harvest(args.data_dir)
     elif args.command == "harvest" and args.source == "siconfi":
         from caramelo.harvesters import siconfi
-        entes = tuple(args.entes) if args.entes else siconfi.UF_ENTES
+        if args.municipios:
+            uf = None if args.municipios.lower() == "all" else args.municipios
+            entes = siconfi.municipio_entes(args.data_dir, uf)
+        elif args.entes:
+            entes = tuple(args.entes)
+        else:
+            entes = siconfi.UF_ENTES
         siconfi.harvest(args.data_dir, args.exercicio, args.periodo, entes)
+    elif args.command == "harvest" and args.source == "ceap":
+        from caramelo.harvesters import ceap
+        years = tuple(args.years) if args.years else ceap.DEFAULT_YEARS
+        ceap.harvest(args.data_dir, years)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
