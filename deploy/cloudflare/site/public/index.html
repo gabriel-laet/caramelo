@@ -24,8 +24,6 @@
   .node text { fill: currentColor; font-size: 13.5px; font-weight: 600; }
   .node .sub { fill: var(--muted); font-size: 11px; font-weight: 400; }
   svg a { cursor: pointer; text-decoration: none; }
-  .brands { opacity: .9; transition: opacity .25s; }
-  .node:hover .brands { opacity: 1; }
 
   .wire { stroke: color-mix(in srgb, currentColor 13%, transparent); stroke-width: 1.4; fill: none; }
   .dot { fill: var(--caramel); }
@@ -67,7 +65,7 @@
   <path id="w3" class="wire" d="M198 197 C 300 197, 330 235, 402 235"/>
   <path id="w4" class="wire" d="M198 273 C 300 273, 330 235, 402 235"/>
   <path id="w5" class="wire" d="M198 349 C 310 349, 330 235, 402 235"/>
-  <path id="w6" class="wire" d="M198 426 C 320 426, 330 235, 402 235"/>
+  <path id="w6" class="wire" d="M198 425 C 320 425, 330 235, 402 235"/>
   <!-- wires: hub -> outputs -->
   <path id="o1" class="wire" d="M518 235 C 600 235, 610 100, 700 100"/>
   <path id="o2" class="wire" d="M518 235 C 620 235, 620 235, 700 235"/>
@@ -92,25 +90,7 @@
   <a href="https://legis.senado.leg.br/dadosabertos" target="_blank" rel="noopener"><g class="node"><rect x="10" y="172" width="188" height="50" rx="11"/><text x="104" y="193" text-anchor="middle">Senado Federal</text><text x="104" y="210" text-anchor="middle" class="sub">senadores · mandatos</text></g></a>
   <a href="https://siconfi.tesouro.gov.br" target="_blank" rel="noopener"><g class="node"><rect x="10" y="248" width="188" height="50" rx="11"/><text x="104" y="269" text-anchor="middle">Tesouro · SICONFI</text><text x="104" y="286" text-anchor="middle" class="sub">orçamentos</text></g></a>
   <a href="https://servicodados.ibge.gov.br/api/docs" target="_blank" rel="noopener"><g class="node"><rect x="10" y="324" width="188" height="50" rx="11"/><text x="104" y="345" text-anchor="middle">IBGE</text><text x="104" y="362" text-anchor="middle" class="sub">municípios · população</text></g></a>
-  <a href="/docs/data.md"><g class="node"><rect x="10" y="398" width="188" height="56" rx="11"/><text x="104" y="417" text-anchor="middle">Redes &amp; mídia</text>
-    <defs>
-      <linearGradient id="igg" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#FDC468"/><stop offset=".5" stop-color="#DD2A7B"/><stop offset="1" stop-color="#8134AF"/>
-      </linearGradient>
-    </defs>
-    <g class="brands" transform="translate(34,424)">
-      <!-- X -->
-      <text x="0" y="12.5" font-size="14" font-weight="800" font-family="ui-sans-serif,system-ui" fill="currentColor">𝕏</text>
-      <!-- YouTube -->
-      <g transform="translate(25,1.5)"><rect width="18" height="12.5" rx="4" fill="#FF0000"/><path d="M7.2 3.5 12 6.25 7.2 9z" fill="#fff"/></g>
-      <!-- Instagram -->
-      <g transform="translate(56,1)" fill="none" stroke="url(#igg)" stroke-width="1.8"><rect width="13.5" height="13.5" rx="4.2"/><circle cx="6.75" cy="6.75" r="3.1"/><circle cx="10.6" cy="2.9" r=".9" fill="url(#igg)" stroke="none"/></g>
-      <!-- Facebook -->
-      <g transform="translate(83,1)"><rect width="13.5" height="13.5" rx="4.2" fill="#1877F2"/><text x="7.2" y="11" font-size="11.5" font-weight="800" font-family="ui-sans-serif,system-ui" fill="#fff" text-anchor="middle">f</text></g>
-      <!-- News -->
-      <g transform="translate(110,2)" fill="none" stroke="#e8b04b" stroke-width="1.7"><rect width="14" height="11.5" rx="2.4"/><path d="M3 3.6h8M3 6h8M3 8.4h4.5"/></g>
-    </g>
-  </g></a>
+  <a href="/docs/data.md"><g class="node"><rect x="10" y="400" width="188" height="50" rx="11"/><text x="104" y="421" text-anchor="middle">Redes &amp; mídia</text><text x="104" y="438" text-anchor="middle" class="sub">X · YouTube · Instagram · News</text></g></a>
 
   <!-- hub -->
   <g>
