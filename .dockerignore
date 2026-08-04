@@ -1,0 +1,6 @@
+data/
+deploy/
+examples/
+.git/
+**/__pycache__/
+*.egg-info/
