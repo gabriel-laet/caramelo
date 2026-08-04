@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 
@@ -34,6 +35,15 @@ def main(argv: list[str] | None = None) -> None:
 
     resolve = sub.add_parser("resolve", help="build entity-resolution tables")
     resolve.add_argument("entity", choices=["autores"])
+
+    pub = sub.add_parser("publish",
+                         help="publish tables + manifest + events to a target")
+    pub.add_argument("--target", default=os.environ.get(
+        "CARAMELO_PUBLISH_TARGET", "local:data/published"),
+        help="local:<dir> or r2 (default: $CARAMELO_PUBLISH_TARGET)")
+
+    sub.add_parser("run-all",
+                   help="harvest every source, resolve, publish (container entrypoint)")
 
     args = parser.parse_args(argv)
 
@@ -70,6 +80,23 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
+    elif args.command == "publish":
+        from caramelo.publish import publish
+        publish(args.data_dir, args.target)
+    elif args.command == "run-all":
+        from caramelo.harvesters import camara, camara_bulk, ceap, emendas, ibge, senado, siconfi
+        from caramelo.publish import publish
+        from caramelo.resolution import authors
+        emendas.harvest(args.data_dir)
+        camara.harvest(args.data_dir)
+        senado.harvest(args.data_dir)
+        camara_bulk.harvest(args.data_dir, camara_bulk.DEFAULT_YEARS)
+        ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)
+        ibge.harvest(args.data_dir)
+        siconfi.harvest(args.data_dir, args.exercicio, args.periodo)
+        authors.resolve(args.data_dir)
+        publish(args.data_dir, os.environ.get(
+            "CARAMELO_PUBLISH_TARGET", "local:data/published"))
 
 
 if __name__ == "__main__":

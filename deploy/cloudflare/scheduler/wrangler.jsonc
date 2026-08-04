@@ -1,0 +1,27 @@
+// Caramelo harvest scheduler: cron-triggered Worker that runs the harvest
+// container. UNTESTED SKELETON — finalize on first deploy.
+{
+  "name": "caramelo-scheduler",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "containers": [
+    {
+      "class_name": "HarvestContainer",
+      "image": "../../../Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "HARVESTER", "class_name": "HarvestContainer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["HarvestContainer"] }
+  ],
+  "triggers": {
+    // 09:00 UTC daily — after Portal da Transparência refreshes its dumps
+    "crons": ["0 9 * * *"]
+  }
+}
