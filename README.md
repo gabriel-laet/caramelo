@@ -31,8 +31,14 @@ caramelo harvest deputados   # Câmara API, legislaturas 55-57
 caramelo harvest senadores   # Senado API, legislaturas 55-57
 caramelo harvest votacoes    # Câmara bulk: 41k votações, 468k roll-call votes,
                              # 15k party orientations (2023-2026)
+caramelo harvest municipios  # IBGE: all 5,571 municípios + population
+caramelo harvest siconfi     # Tesouro RREO budget reports (default: 27 UFs)
 caramelo resolve autores     # author-name -> person crosswalk (both chambers)
 ```
+
+`examples/demo_rankings.py` shows what the joined tables already answer: top
+emendas-Pix authors, Pix money per capita by município, and deputy
+governismo / party-discipline indexes over 468k roll-call votes.
 
 Resolution is person-level: an author row carries a `deputado_id`, a
 `senador_id`, or both (many parliamentarians served in both chambers), with
@@ -50,10 +56,11 @@ was probed live before inclusion).
 1. ~~Emendas harvester (bulk, auth-free) + author resolution~~ ✅
 2. ~~Person-level author crosswalk (dual-chamber ids, homonyms split by UF)~~ ✅
 3. ~~Câmara bulk harvester: votações, votos, orientações~~ ✅
-4. CEAP expenses harvester (bulk lives on a separate endpoint)
-5. SICONFI + IBGE dimension tables
-6. Git-scraping pipeline: harvest → diff → event log → webhooks
-7. REST API, then MCP server
+4. ~~SICONFI + IBGE dimension tables~~ ✅
+5. CEAP expenses harvester (bulk lives on a separate endpoint)
+6. Full municipal SICONFI sweep (5,570 entes) with rate limiting
+7. Git-scraping pipeline: harvest → diff → event log → webhooks
+8. REST API, then MCP server
 
 ## License
 

@@ -60,6 +60,39 @@ def top_pix_authors(n: int = 15) -> None:
               f"pago {money(v['pago']):>18}  empenhado {money(v['empenhado']):>18}")
 
 
+def pix_per_capita(n: int = 15) -> None:
+    municipios = {m["codigo_ibge"]: m for m in
+                  pq.read_table(DATA / "municipios.parquet").to_pylist()}
+
+    sums: dict[str, dict] = {}
+    for r in pq.read_table(
+            DATA / "emendas.parquet",
+            columns=["codigo_ibge_municipio", "nome_autor", "ano",
+                     "is_transferencia_especial", "valor_empenhado"]).to_pylist():
+        code = r["codigo_ibge_municipio"]
+        if (r["is_transferencia_especial"] and (r["ano"] or 0) >= 2023
+                and code in municipios):
+            entry = sums.setdefault(code, {"total": 0.0, "autores": Counter()})
+            entry["total"] += r["valor_empenhado"] or 0
+            if r["nome_autor"]:
+                entry["autores"][r["nome_autor"]] += r["valor_empenhado"] or 0
+
+    ranked = sorted(
+        ((code, e) for code, e in sums.items()
+         if municipios[code]["populacao"]),
+        key=lambda kv: -kv[1]["total"] / municipios[kv[0]]["populacao"])
+
+    print(f"\n=== Top {n} municípios por emenda Pix per capita "
+          f"(2023-2026, empenhado) ===")
+    for i, (code, e) in enumerate(ranked[:n], 1):
+        m = municipios[code]
+        pc = e["total"] / m["populacao"]
+        autor = e["autores"].most_common(1)[0][0] if e["autores"] else "?"
+        print(f"{i:2d}. {m['nome']:<24} {m['uf']}  pop {m['populacao']:>9,}  "
+              f"{money(e['total']):>16}  = {money(pc):>10}/hab  "
+              f"maior autor: {autor}")
+
+
 def party_tokens(bancada: str) -> set[str]:
     if bancada.startswith("Fdr "):
         return {t.upper() for t in bancada[4:].split("-")}
@@ -145,4 +178,5 @@ def alignment_indexes() -> None:
 
 if __name__ == "__main__":
     top_pix_authors()
+    pix_per_capita()
     alignment_indexes()
