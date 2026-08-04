@@ -1,5 +1,5 @@
 // Caramelo harvest scheduler: cron-triggered Worker that runs the harvest
-// container. UNTESTED SKELETON — finalize on first deploy.
+// container.
 {
   "name": "caramelo-scheduler",
   "main": "src/index.ts",
@@ -7,7 +7,9 @@
   "containers": [
     {
       "class_name": "HarvestContainer",
-      "image": "../../../Dockerfile",
+      // Pre-pushed via `wrangler containers push` (a path to the repo's
+      // Dockerfile also works where Docker can build it).
+      "image": "registry.cloudflare.com/2cdbde3608c5914c43e4433fd39ba6b2/caramelo:cf",
       "instance_type": "standard-1",
       "max_instances": 1
     }
@@ -23,5 +25,8 @@
   "triggers": {
     // 09:00 UTC daily — after Portal da Transparência refreshes its dumps
     "crons": ["0 9 * * *"]
+  },
+  "observability": {
+    "enabled": true
   }
 }
