@@ -4,75 +4,158 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Caramelo — dados públicos brasileiros, abertos de verdade</title>
-<meta name="description" content="Camada de dados aberta e neutra do dinheiro público brasileiro: emendas, votações, despesas parlamentares, orçamentos municipais — em Parquet, com manifestos, eventos e webhooks.">
+<meta name="description" content="A camada de dados aberta e neutra do dinheiro público brasileiro: emendas, votações, despesas, orçamentos — em Parquet, com eventos e webhooks.">
 <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
 <style>
-  :root { color-scheme: light dark; --accent: #c47a2c; --muted: #777; }
-  * { box-sizing: border-box; }
+  :root { color-scheme: light dark; --caramel: #d98e3b; --caramel-deep: #b06a1e; --muted: #8a8a8a; }
+  * { box-sizing: border-box; margin: 0; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-         line-height: 1.6; max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
-  h1 { font-size: 2.2rem; margin: 1rem 0 0.25rem; }
-  h1 .dog { margin-right: .4rem; }
-  .tagline { font-size: 1.15rem; color: var(--muted); margin-top: 0; }
-  h2 { margin-top: 2.2rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: .3rem; }
-  a { color: var(--accent); }
-  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; }
-  pre { background: color-mix(in srgb, currentColor 7%, transparent);
-        padding: .9rem 1rem; border-radius: 8px; overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
-  td, th { text-align: left; padding: .3rem .6rem .3rem 0; vertical-align: top; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; margin-top: 1rem; }
-  .card { border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-          border-radius: 10px; padding: .9rem 1rem; }
-  .card b { display: block; margin-bottom: .25rem; }
-  footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+         display: flex; flex-direction: column; align-items: center;
+         min-height: 100svh; padding: 3rem 1rem 2.5rem; gap: 1.6rem; }
+  header { text-align: center; }
+  h1 { font-size: clamp(2rem, 5vw, 2.8rem); letter-spacing: -.02em; }
+  .tagline { color: var(--muted); font-size: clamp(.95rem, 2.5vw, 1.1rem); margin-top: .35rem; }
+  .flow { width: min(920px, 100%); }
+  svg { width: 100%; height: auto; display: block; }
+  .node rect { fill: color-mix(in srgb, currentColor 5%, transparent);
+               stroke: color-mix(in srgb, currentColor 16%, transparent); stroke-width: 1;
+               transition: all .25s; }
+  .node:hover rect { stroke: var(--caramel); fill: color-mix(in srgb, var(--caramel) 10%, transparent); }
+  .node text { fill: currentColor; font-size: 13.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-size: 11px; font-weight: 400; }
+  .wire { stroke: color-mix(in srgb, currentColor 13%, transparent); stroke-width: 1.4; fill: none; }
+  .dot { fill: var(--caramel); }
+  .hub-ring { fill: none; stroke: var(--caramel); opacity: .5; animation: ring 2.6s ease-out infinite; transform-origin: center; }
+  @keyframes ring { 0% { transform: scale(.82); opacity: .55; } 100% { transform: scale(1.35); opacity: 0; } }
+  .hub-core { fill: color-mix(in srgb, var(--caramel) 14%, transparent); stroke: var(--caramel); stroke-width: 1.6; }
+  .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: .7rem 2.4rem; text-align: center; }
+  .stat b { display: block; font-size: clamp(1.5rem, 4vw, 2.1rem); font-variant-numeric: tabular-nums;
+            color: var(--caramel-deep); }
+  @media (prefers-color-scheme: dark) { .stat b { color: var(--caramel); } }
+  .stat span { color: var(--muted); font-size: .85rem; }
+  .query { width: min(760px, 100%); position: relative; }
+  pre { background: color-mix(in srgb, currentColor 7%, transparent); border-radius: 10px;
+        padding: .9rem 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.55;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .copy { position: absolute; top: .5rem; right: .5rem; border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+          background: none; color: inherit; border-radius: 7px; padding: .25rem .6rem; font-size: .75rem; cursor: pointer; }
+  .copy:hover { border-color: var(--caramel); color: var(--caramel); }
+  nav { display: flex; flex-wrap: wrap; gap: 1.4rem; justify-content: center; font-size: .92rem; }
+  a { color: var(--caramel-deep); text-decoration: none; }
+  @media (prefers-color-scheme: dark) { a { color: var(--caramel); } }
+  a:hover { text-decoration: underline; }
+  footer { color: var(--muted); font-size: .8rem; text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .hub-ring { animation: none; } }
 </style>
 </head>
 <body>
-<h1><span class="dog">🐕</span>Caramelo</h1>
-<p class="tagline">A camada de dados aberta, neutra e auditável do dinheiro público brasileiro.</p>
 
-<p>Caramelo coleta, normaliza e reserve dados públicos oficiais — emendas
-parlamentares (inclusive emendas Pix), votações nominais, despesas
-parlamentares (CEAP), orçamentos de estados e municípios (SICONFI),
-municípios e população (IBGE), redes sociais declaradas e cobertura de
-imprensa — e os republica em Parquet com manifestos verificáveis, eventos
-tipados e webhooks. Sem opinião, sem editorial: só fatos com proveniência.</p>
+<header>
+  <h1>🐕 Caramelo</h1>
+  <p class="tagline">O dinheiro público brasileiro, em dados abertos de verdade — sem opinião, com proveniência.</p>
+</header>
 
-<div class="cards">
-  <div class="card"><b>📦 Dados</b>12 tabelas em Parquet, atualizadas diariamente, servidas de um bucket público sem custo de egress.</div>
-  <div class="card"><b>🔔 Eventos</b>Cada publicação é diffada contra a anterior: <code>emenda.paid</code>, <code>rede.removed</code>… entregues por webhook.</div>
-  <div class="card"><b>🧩 Grafo</b>Resolução de entidades pessoa-nível: autor de emenda ↔ deputado/senador ↔ voto ↔ município ↔ mídia.</div>
-  <div class="card"><b>🤖 Agentes</b><a href="/llms.txt">llms.txt</a> e docs em Markdown puro. Servidor MCP a caminho.</div>
+<div class="flow" role="img" aria-label="Fontes oficiais fluindo para o Caramelo e saindo como Parquet, webhooks e agentes de IA">
+<svg viewBox="0 0 920 470" xmlns="http://www.w3.org/2000/svg">
+  <!-- wires: sources -> hub -->
+  <path id="w1" class="wire" d="M198 45  C 320 45,  330 235, 402 235"/>
+  <path id="w2" class="wire" d="M198 121 C 310 121, 330 235, 402 235"/>
+  <path id="w3" class="wire" d="M198 197 C 300 197, 330 235, 402 235"/>
+  <path id="w4" class="wire" d="M198 273 C 300 273, 330 235, 402 235"/>
+  <path id="w5" class="wire" d="M198 349 C 310 349, 330 235, 402 235"/>
+  <path id="w6" class="wire" d="M198 425 C 320 425, 330 235, 402 235"/>
+  <!-- wires: hub -> outputs -->
+  <path id="o1" class="wire" d="M518 235 C 600 235, 610 100, 700 100"/>
+  <path id="o2" class="wire" d="M518 235 C 620 235, 620 235, 700 235"/>
+  <path id="o3" class="wire" d="M518 235 C 600 235, 610 370, 700 370"/>
+
+  <!-- data pulses -->
+  <g class="pulses">
+    <circle class="dot" r="3.4"><animateMotion dur="3.1s" repeatCount="indefinite" begin="0s"><mpath href="#w1"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.7s" repeatCount="indefinite" begin=".9s"><mpath href="#w2"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.9s" repeatCount="indefinite" begin=".4s"><mpath href="#w3"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.6s" repeatCount="indefinite" begin="1.5s"><mpath href="#w4"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="3.3s" repeatCount="indefinite" begin=".7s"><mpath href="#w5"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.8s" repeatCount="indefinite" begin="1.9s"><mpath href="#w6"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.5s" repeatCount="indefinite" begin=".3s"><mpath href="#o1"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.2s" repeatCount="indefinite" begin="1.1s"><mpath href="#o2"/></animateMotion></circle>
+    <circle class="dot" r="3.4"><animateMotion dur="2.6s" repeatCount="indefinite" begin="1.7s"><mpath href="#o3"/></animateMotion></circle>
+  </g>
+
+  <!-- source nodes -->
+  <g class="node"><rect x="10" y="20"  width="188" height="50" rx="11"/><text x="104" y="41" text-anchor="middle">Portal da Transparência</text><text x="104" y="58" text-anchor="middle" class="sub">emendas · Pix</text></g>
+  <g class="node"><rect x="10" y="96"  width="188" height="50" rx="11"/><text x="104" y="117" text-anchor="middle">Câmara dos Deputados</text><text x="104" y="134" text-anchor="middle" class="sub">votos · CEAP · perfis</text></g>
+  <g class="node"><rect x="10" y="172" width="188" height="50" rx="11"/><text x="104" y="193" text-anchor="middle">Senado Federal</text><text x="104" y="210" text-anchor="middle" class="sub">senadores · mandatos</text></g>
+  <g class="node"><rect x="10" y="248" width="188" height="50" rx="11"/><text x="104" y="269" text-anchor="middle">Tesouro · SICONFI</text><text x="104" y="286" text-anchor="middle" class="sub">orçamentos</text></g>
+  <g class="node"><rect x="10" y="324" width="188" height="50" rx="11"/><text x="104" y="345" text-anchor="middle">IBGE</text><text x="104" y="362" text-anchor="middle" class="sub">municípios · população</text></g>
+  <g class="node"><rect x="10" y="400" width="188" height="50" rx="11"/><text x="104" y="421" text-anchor="middle">Imprensa</text><text x="104" y="438" text-anchor="middle" class="sub">Google News</text></g>
+
+  <!-- hub -->
+  <g>
+    <circle class="hub-ring" cx="460" cy="235" r="52"/>
+    <circle class="hub-core" cx="460" cy="235" r="52"/>
+    <text x="460" y="243" text-anchor="middle" font-size="34">🐕</text>
+    <text x="460" y="310" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">caramelo</text>
+    <text x="460" y="327" text-anchor="middle" font-size="11" class="sub" fill="var(--muted)">normaliza · resolve · publica</text>
+  </g>
+
+  <!-- output nodes -->
+  <g class="node"><rect x="702" y="75"  width="208" height="50" rx="11"/><text x="806" y="96" text-anchor="middle">Parquet aberto</text><text x="806" y="113" text-anchor="middle" class="sub">SQL direto no navegador</text></g>
+  <g class="node"><rect x="702" y="210" width="208" height="50" rx="11"/><text x="806" y="231" text-anchor="middle">Eventos · Webhooks</text><text x="806" y="248" text-anchor="middle" class="sub">emenda.paid · rede.removed</text></g>
+  <g class="node"><rect x="702" y="345" width="208" height="50" rx="11"/><text x="806" y="366" text-anchor="middle">Agentes de IA</text><text x="806" y="383" text-anchor="middle" class="sub">llms.txt · MCP em breve</text></g>
+</svg>
 </div>
 
-<h2>Consulte agora, sem baixar nada</h2>
-<p>As tabelas são Parquet puro em HTTP — qualquer DuckDB resolve:</p>
-<pre><code>SELECT nome_autor, sum(valor_pago) AS pago
+<div class="stats">
+  <div class="stat"><b id="s-rows">—</b><span>linhas de dados</span></div>
+  <div class="stat"><b id="s-tables">—</b><span>tabelas públicas</span></div>
+  <div class="stat"><b>R$ 30 bi</b><span>em emendas Pix rastreadas</span></div>
+  <div class="stat"><b id="s-fresh">—</b><span>última atualização</span></div>
+</div>
+
+<div class="query">
+  <button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('q').innerText).then(()=>{this.innerText='copiado!';setTimeout(()=>this.innerText='copiar',1500)})">copiar</button>
+<pre id="q">-- top autores de emendas Pix, direto do DuckDB — sem baixar nada
+SELECT nome_autor, sum(valor_pago) AS pago
 FROM 'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'
 WHERE is_transferencia_especial AND ano >= 2023
-GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</code></pre>
-<p>Comece pelo <a href="https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json">manifest.json</a> —
-ele lista todas as tabelas com contagem de linhas e hash de conteúdo.</p>
+GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</pre>
+</div>
 
-<h2>Documentação</h2>
-<table>
-  <tr><td><a href="/docs/data.md">docs/data.md</a></td><td>todas as tabelas, colunas, joins e cadência</td></tr>
-  <tr><td><a href="/docs/events.md">docs/events.md</a></td><td>taxonomia de eventos e API de webhooks</td></tr>
-  <tr><td><a href="/llms.txt">llms.txt</a></td><td>índice para agentes de IA</td></tr>
-  <tr><td><a href="https://github.com/gabriel-laet/caramelo">github.com/gabriel-laet/caramelo</a></td><td>código-fonte (MIT), arquitetura e pesquisa de fontes</td></tr>
-</table>
+<nav>
+  <a href="https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json">manifest.json</a>
+  <a href="/docs/data.md">dados</a>
+  <a href="/docs/events.md">eventos</a>
+  <a href="/llms.txt">llms.txt</a>
+  <a href="https://github.com/gabriel-laet/caramelo">GitHub</a>
+</nav>
 
-<h2>Princípios</h2>
-<p><b>Neutro por construção.</b> Caramelo publica fatos e método, nunca
-pesos ou rankings editoriais — produtos opinativos consomem estes dados
-pelas mesmas interfaces públicas disponíveis a qualquer um.<br>
-<b>Auditável.</b> Toda tabela tem fonte oficial documentada, hash de
-conteúdo e histórico de manifestos.<br>
-<b>De todos.</b> Como o vira-lata caramelo: não tem dono, está em todo
-lugar, e toma conta da rua.</p>
+<footer>Software livre (MIT) · fontes oficiais de dados abertos · como o vira-lata: de todos, e toma conta da rua.</footer>
 
-<footer>Caramelo é software livre (MIT). Dados oriundos de fontes oficiais
-de dados abertos do governo brasileiro. · <a href="/llms.txt">llms.txt</a></footer>
+<script>
+(async () => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches)
+    document.querySelector('.pulses')?.remove();
+  try {
+    const m = await (await fetch('https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json')).json();
+    const tables = Object.keys(m.tables).length;
+    const rows = Object.values(m.tables).reduce((a, t) => a + t.rows, 0);
+    const hours = Math.max(0, Math.round((Date.now() - new Date(m.generated_at)) / 36e5));
+    const fmt = n => n >= 1e6 ? (n / 1e6).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + ' mi' : n.toLocaleString('pt-BR');
+    const count = (el, target, format) => {
+      const t0 = performance.now(), dur = 900;
+      const step = now => {
+        const p = Math.min(1, (now - t0) / dur), eased = 1 - (1 - p) ** 3;
+        el.textContent = format(Math.round(target * eased));
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    };
+    count(document.getElementById('s-rows'), rows, fmt);
+    count(document.getElementById('s-tables'), tables, String);
+    document.getElementById('s-fresh').textContent = hours === 0 ? 'agora' : `há ${hours} h`;
+  } catch { /* counters stay em-dash if the bucket is unreachable */ }
+})();
+</script>
 </body>
 </html>
