@@ -1,0 +1,28 @@
+// Caramelo API/MCP: container running uvicorn (REST at /, MCP at /mcp),
+// fronted by this Worker on api. and mcp. custom domains.
+{
+  "name": "caramelo-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "ApiContainer",
+      "image": "../../../Dockerfile.api",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "API", "class_name": "ApiContainer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ApiContainer"] }
+  ],
+  "routes": [
+    { "pattern": "api.caramelo.dev.br", "custom_domain": true },
+    { "pattern": "mcp.caramelo.dev.br", "custom_domain": true }
+  ]
+}

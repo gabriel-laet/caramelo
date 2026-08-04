@@ -25,10 +25,18 @@ Person-level entity resolution links emenda authors to Câmara/Senado ids
 - [Architecture (Markdown)](https://raw.githubusercontent.com/gabriel-laet/caramelo/main/ARCHITECTURE.md)
 - [Verified source research (Markdown)](https://raw.githubusercontent.com/gabriel-laet/caramelo/main/RESEARCH.md)
 
+## API and MCP
+
+- [REST API](https://api.caramelo.dev.br/docs): read-only typed endpoints
+  over the lake (rankings, profiles, municipality views, search). OpenAPI at
+  https://api.caramelo.dev.br/openapi.json
+- **MCP server**: `https://mcp.caramelo.dev.br/` (Streamable HTTP transport,
+  no auth). Tools mirror the REST endpoints 1:1: `emendas_autores`,
+  `emendas_municipio`, `pix_per_capita`, `politico`, `governismo`,
+  `municipio`, `busca`.
+
 ## Optional
 
 - Upstream sources: Portal da Transparência (emendas bulk), Câmara dos
   Deputados Dados Abertos (votes, expenses, profiles), Senado Federal,
   Tesouro Nacional SICONFI, IBGE, SearchApi.io (news snapshots)
-- An MCP server for AI-agent access is planned; until then, the Parquet lake
-  plus this manifest is the machine interface.
