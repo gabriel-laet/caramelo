@@ -1,0 +1,32 @@
+// Caramelo events worker: scans R2 for new events/*.jsonl, fans out to a
+// queue, and delivers webhooks to registered subscribers with retries.
+{
+  "name": "caramelo-events",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "observability": { "enabled": true },
+  "r2_buckets": [
+    { "binding": "DATA", "bucket_name": "caramelo-data" }
+  ],
+  "kv_namespaces": [
+    { "binding": "SUBS", "id": "8a83786af13745498f4542ec495c1e17" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "EVENTS_QUEUE", "queue": "caramelo-events" }
+    ],
+    "consumers": [
+      {
+        "queue": "caramelo-events",
+        "max_batch_size": 25,
+        "max_retries": 5,
+        "retry_delay": 60
+      }
+    ]
+  },
+  "triggers": {
+    // scan for new event files shortly after the daily 09:00 harvest,
+    // plus periodic sweeps
+    "crons": ["*/20 * * * *"]
+  }
+}

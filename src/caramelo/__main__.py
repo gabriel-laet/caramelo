@@ -48,8 +48,14 @@ def main(argv: list[str] | None = None) -> None:
         "CARAMELO_PUBLISH_TARGET", "local:data/published"),
         help="local:<dir> or r2 (default: $CARAMELO_PUBLISH_TARGET)")
 
-    sub.add_parser("run-all",
-                   help="harvest every source, resolve, publish (container entrypoint)")
+    runall = sub.add_parser(
+        "run-all",
+        help="harvest every source, resolve, publish (container entrypoint)")
+    runall.add_argument("--exercicio", type=int, default=None,
+                        help="siconfi fiscal year (default: current year)")
+    runall.add_argument("--periodo", type=int, default=None,
+                        help="siconfi bimonthly period (default: latest "
+                             "plausibly-published one)")
 
     args = parser.parse_args(argv)
 
@@ -96,16 +102,24 @@ def main(argv: list[str] | None = None) -> None:
         from caramelo.publish import publish
         publish(args.data_dir, args.target)
     elif args.command == "run-all":
+        import time as _time
+
         from caramelo.harvesters import camara, camara_bulk, ceap, emendas, ibge, senado, siconfi
         from caramelo.publish import publish
         from caramelo.resolution import authors
+        now = _time.gmtime()
+        # SICONFI publishes each bimester with ~2 months of lag
+        exercicio = args.exercicio or (now.tm_year if now.tm_mon > 3
+                                       else now.tm_year - 1)
+        periodo = args.periodo or (max(1, (now.tm_mon - 3) // 2 + 1)
+                                   if now.tm_mon > 3 else 6)
         emendas.harvest(args.data_dir)
         camara.harvest(args.data_dir)
         senado.harvest(args.data_dir)
         camara_bulk.harvest(args.data_dir, camara_bulk.DEFAULT_YEARS)
         ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)
         ibge.harvest(args.data_dir)
-        siconfi.harvest(args.data_dir, args.exercicio, args.periodo)
+        siconfi.harvest(args.data_dir, exercicio, periodo)
         authors.resolve(args.data_dir)
         publish(args.data_dir, os.environ.get(
             "CARAMELO_PUBLISH_TARGET", "local:data/published"))
