@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caramelo — dados públicos brasileiros, abertos de verdade</title>
+<meta name="description" content="Camada de dados aberta e neutra do dinheiro público brasileiro: emendas, votações, despesas parlamentares, orçamentos municipais — em Parquet, com manifestos, eventos e webhooks.">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+<style>
+  :root { color-scheme: light dark; --accent: #c47a2c; --muted: #777; }
+  * { box-sizing: border-box; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+         line-height: 1.6; max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 2.2rem; margin: 1rem 0 0.25rem; }
+  h1 .dog { margin-right: .4rem; }
+  .tagline { font-size: 1.15rem; color: var(--muted); margin-top: 0; }
+  h2 { margin-top: 2.2rem; border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent); padding-bottom: .3rem; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .88em; }
+  pre { background: color-mix(in srgb, currentColor 7%, transparent);
+        padding: .9rem 1rem; border-radius: 8px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  td, th { text-align: left; padding: .3rem .6rem .3rem 0; vertical-align: top; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; margin-top: 1rem; }
+  .card { border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+          border-radius: 10px; padding: .9rem 1rem; }
+  .card b { display: block; margin-bottom: .25rem; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<h1><span class="dog">🐕</span>Caramelo</h1>
+<p class="tagline">A camada de dados aberta, neutra e auditável do dinheiro público brasileiro.</p>
+
+<p>Caramelo coleta, normaliza e reserve dados públicos oficiais — emendas
+parlamentares (inclusive emendas Pix), votações nominais, despesas
+parlamentares (CEAP), orçamentos de estados e municípios (SICONFI),
+municípios e população (IBGE), redes sociais declaradas e cobertura de
+imprensa — e os republica em Parquet com manifestos verificáveis, eventos
+tipados e webhooks. Sem opinião, sem editorial: só fatos com proveniência.</p>
+
+<div class="cards">
+  <div class="card"><b>📦 Dados</b>12 tabelas em Parquet, atualizadas diariamente, servidas de um bucket público sem custo de egress.</div>
+  <div class="card"><b>🔔 Eventos</b>Cada publicação é diffada contra a anterior: <code>emenda.paid</code>, <code>rede.removed</code>… entregues por webhook.</div>
+  <div class="card"><b>🧩 Grafo</b>Resolução de entidades pessoa-nível: autor de emenda ↔ deputado/senador ↔ voto ↔ município ↔ mídia.</div>
+  <div class="card"><b>🤖 Agentes</b><a href="/llms.txt">llms.txt</a> e docs em Markdown puro. Servidor MCP a caminho.</div>
+</div>
+
+<h2>Consulte agora, sem baixar nada</h2>
+<p>As tabelas são Parquet puro em HTTP — qualquer DuckDB resolve:</p>
+<pre><code>SELECT nome_autor, sum(valor_pago) AS pago
+FROM 'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'
+WHERE is_transferencia_especial AND ano >= 2023
+GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</code></pre>
+<p>Comece pelo <a href="https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json">manifest.json</a> —
+ele lista todas as tabelas com contagem de linhas e hash de conteúdo.</p>
+
+<h2>Documentação</h2>
+<table>
+  <tr><td><a href="/docs/data.md">docs/data.md</a></td><td>todas as tabelas, colunas, joins e cadência</td></tr>
+  <tr><td><a href="/docs/events.md">docs/events.md</a></td><td>taxonomia de eventos e API de webhooks</td></tr>
+  <tr><td><a href="/llms.txt">llms.txt</a></td><td>índice para agentes de IA</td></tr>
+  <tr><td><a href="https://github.com/gabriel-laet/caramelo">github.com/gabriel-laet/caramelo</a></td><td>código-fonte (MIT), arquitetura e pesquisa de fontes</td></tr>
+</table>
+
+<h2>Princípios</h2>
+<p><b>Neutro por construção.</b> Caramelo publica fatos e método, nunca
+pesos ou rankings editoriais — produtos opinativos consomem estes dados
+pelas mesmas interfaces públicas disponíveis a qualquer um.<br>
+<b>Auditável.</b> Toda tabela tem fonte oficial documentada, hash de
+conteúdo e histórico de manifestos.<br>
+<b>De todos.</b> Como o vira-lata caramelo: não tem dono, está em todo
+lugar, e toma conta da rua.</p>
+
+<footer>Caramelo é software livre (MIT). Dados oriundos de fontes oficiais
+de dados abertos do governo brasileiro. · <a href="/llms.txt">llms.txt</a></footer>
+</body>
+</html>

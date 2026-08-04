@@ -1,0 +1,9 @@
+// Caramelo landing page + docs: assets-only Worker.
+// Markdown and llms.txt are served raw — agent-first documentation.
+{
+  "name": "caramelo-site",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./public"
+  }
+}

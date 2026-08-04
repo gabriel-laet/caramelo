@@ -1,0 +1,34 @@
+# Caramelo
+
+> Open, politically-neutral data layer for Brazilian public data: parliamentary
+> amendments (emendas, including emendas Pix), roll-call votes, parliamentary
+> expenses (CEAP), municipal budgets (SICONFI), municipality dimensions (IBGE),
+> politicians' declared social accounts, and news-coverage snapshots — all
+> normalized to Parquet, republished with content-hash manifests, and diffed
+> into typed webhook events.
+
+All data is served from a public R2 bucket with free egress. Tables are plain
+Parquet, queryable directly over HTTP (DuckDB: `SELECT * FROM
+'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'`).
+Person-level entity resolution links emenda authors to Câmara/Senado ids
+(99.2% of 2021+ individual-emenda paid value resolved).
+
+## Data
+
+- [Manifest (JSON)](https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json): current tables, row counts, sha256 content hashes, generation timestamp
+- [Data documentation (Markdown)](/docs/data.md): every table, its columns, source, and update cadence
+- [Events documentation (Markdown)](/docs/events.md): event taxonomy and webhook subscription API
+
+## Source
+
+- [GitHub repository](https://github.com/gabriel-laet/caramelo): harvesters, entity resolution, publish pipeline, Cloudflare deploy — MIT licensed
+- [Architecture (Markdown)](https://raw.githubusercontent.com/gabriel-laet/caramelo/main/ARCHITECTURE.md)
+- [Verified source research (Markdown)](https://raw.githubusercontent.com/gabriel-laet/caramelo/main/RESEARCH.md)
+
+## Optional
+
+- Upstream sources: Portal da Transparência (emendas bulk), Câmara dos
+  Deputados Dados Abertos (votes, expenses, profiles), Senado Federal,
+  Tesouro Nacional SICONFI, IBGE, SearchApi.io (news snapshots)
+- An MCP server for AI-agent access is planned; until then, the Parquet lake
+  plus this manifest is the machine interface.
