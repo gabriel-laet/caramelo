@@ -7,9 +7,10 @@
   "containers": [
     {
       "class_name": "HarvestContainer",
-      // Pre-pushed via `wrangler containers push` (a path to the repo's
-      // Dockerfile also works where Docker can build it).
-      "image": "registry.cloudflare.com/2cdbde3608c5914c43e4433fd39ba6b2/caramelo:cf",
+      // Built from the repo Dockerfile on deploy (Workers Builds / any
+      // environment with Docker). To deploy a pre-pushed image instead,
+      // set a registry.cloudflare.com/... reference here.
+      "image": "../../../Dockerfile",
       "instance_type": "standard-1",
       "max_instances": 1
     }

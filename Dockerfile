@@ -7,7 +7,8 @@ RUN pip install --no-cache-dir .[publish]
 
 # Harvest state (siconfi shards, bulk downloads) is ephemeral in the
 # container; the durable copy of everything published lives in R2.
-ENV CARAMELO_PUBLISH_TARGET=r2
+ENV CARAMELO_PUBLISH_TARGET=r2 \
+    PYTHONUNBUFFERED=1
 
 ENTRYPOINT ["caramelo"]
 CMD ["run-all"]
