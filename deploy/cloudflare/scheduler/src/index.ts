@@ -14,6 +14,7 @@ export class HarvestContainer extends Container<Env> {
     CARAMELO_R2_ENDPOINT: this.env.CARAMELO_R2_ENDPOINT,
     CARAMELO_R2_BUCKET: this.env.CARAMELO_R2_BUCKET,
     CARAMELO_PUBLISH_TARGET: "r2",
+    PYTHONUNBUFFERED: "1",
   };
 }
 
