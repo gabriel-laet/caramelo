@@ -21,7 +21,8 @@ def main(argv: list[str] | None = None) -> None:
     harvest = sub.add_parser("harvest", help="download and normalize a source")
     harvest.add_argument("source",
                          choices=["emendas", "deputados", "senadores",
-                                  "votacoes", "municipios", "siconfi", "ceap"])
+                                  "votacoes", "municipios", "siconfi", "ceap",
+                                  "redes", "media"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -32,6 +33,11 @@ def main(argv: list[str] | None = None) -> None:
                          help="siconfi: IBGE ente codes (default: 27 UFs)")
     harvest.add_argument("--municipios", default=None, metavar="UF|all",
                          help="siconfi: sweep municípios of one UF, or 'all'")
+    harvest.add_argument("--budget", type=int, default=25,
+                         help="media: max SearchApi credits this run")
+    harvest.add_argument("--engine", default="google_news",
+                         help="media: SearchApi engine (google_news, google, "
+                              "youtube, ...)")
 
     resolve = sub.add_parser("resolve", help="build entity-resolution tables")
     resolve.add_argument("entity", choices=["autores"])
@@ -77,6 +83,12 @@ def main(argv: list[str] | None = None) -> None:
         from caramelo.harvesters import ceap
         years = tuple(args.years) if args.years else ceap.DEFAULT_YEARS
         ceap.harvest(args.data_dir, years)
+    elif args.command == "harvest" and args.source == "redes":
+        from caramelo.harvesters import redes
+        redes.harvest(args.data_dir)
+    elif args.command == "harvest" and args.source == "media":
+        from caramelo import media
+        media.harvest(args.data_dir, args.budget, args.engine)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
