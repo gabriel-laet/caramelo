@@ -36,16 +36,26 @@ def get(url: str, *, params: dict | None = None, headers: dict | None = None,
     raise RuntimeError(f"GET {url} failed after {retries + 1} attempts") from last
 
 
-def download(url: str, dest: Path, *, skip_if_exists: bool = True) -> Path:
+def download(url: str, dest: Path, *, skip_if_exists: bool = True,
+             retries: int = 4) -> Path:
     if skip_if_exists and dest.exists() and dest.stat().st_size > 0:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
-    with httpx.stream("GET", url, headers={"User-Agent": USER_AGENT},
-                      timeout=300.0, follow_redirects=True) as resp:
-        resp.raise_for_status()
-        with open(tmp, "wb") as fh:
-            for chunk in resp.iter_bytes(chunk_size=1 << 20):
-                fh.write(chunk)
-    tmp.rename(dest)
-    return dest
+    delay = 2.0
+    last: Exception | None = None
+    for _ in range(retries + 1):
+        try:
+            with httpx.stream("GET", url, headers={"User-Agent": USER_AGENT},
+                              timeout=300.0, follow_redirects=True) as resp:
+                resp.raise_for_status()
+                with open(tmp, "wb") as fh:
+                    for chunk in resp.iter_bytes(chunk_size=1 << 20):
+                        fh.write(chunk)
+            tmp.rename(dest)
+            return dest
+        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+            last = exc
+            time.sleep(delay)
+            delay *= 2
+    raise RuntimeError(f"download {url} failed after {retries + 1} attempts") from last
