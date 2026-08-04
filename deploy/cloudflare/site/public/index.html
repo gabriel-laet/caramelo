@@ -102,7 +102,7 @@
   </g>
 
   <!-- output nodes (clickable) -->
-  <a href="https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json"><g class="node"><rect x="702" y="75"  width="208" height="50" rx="11"/><text x="806" y="96" text-anchor="middle">Parquet aberto</text><text x="806" y="113" text-anchor="middle" class="sub">SQL direto no navegador</text></g></a>
+  <a href="https://data.caramelo.dev.br/latest/manifest.json"><g class="node"><rect x="702" y="75"  width="208" height="50" rx="11"/><text x="806" y="96" text-anchor="middle">Parquet aberto</text><text x="806" y="113" text-anchor="middle" class="sub">SQL direto no navegador</text></g></a>
   <a href="/docs/events.md"><g class="node"><rect x="702" y="210" width="208" height="50" rx="11"/><text x="806" y="231" text-anchor="middle">Eventos · Webhooks</text><text x="806" y="248" text-anchor="middle" class="sub">emenda.paid · rede.removed</text></g></a>
   <a href="/llms.txt"><g class="node"><rect x="702" y="345" width="208" height="50" rx="11"/><text x="806" y="366" text-anchor="middle">Agentes de IA</text><text x="806" y="383" text-anchor="middle" class="sub">API · MCP · llms.txt</text></g></a>
 </svg>
@@ -119,13 +119,13 @@
   <button class="copy" onclick="navigator.clipboard.writeText(document.getElementById('q').innerText).then(()=>{this.innerText='copiado!';setTimeout(()=>this.innerText='copiar',1500)})">copiar</button>
 <pre id="q">-- top autores de emendas Pix, direto do DuckDB — sem baixar nada
 SELECT nome_autor, sum(valor_pago) AS pago
-FROM 'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'
+FROM 'https://data.caramelo.dev.br/latest/emendas.parquet'
 WHERE is_transferencia_especial AND ano >= 2023
 GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</pre>
 </div>
 
 <nav>
-  <a href="https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json">manifest.json</a>
+  <a href="https://data.caramelo.dev.br/latest/manifest.json">manifest.json</a>
   <a href="/docs/data.md">dados</a>
   <a href="/docs/events.md">eventos</a>
   <a href="https://api.caramelo.dev.br/docs">API</a>
@@ -140,7 +140,7 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</pre>
   if (matchMedia('(prefers-reduced-motion: reduce)').matches)
     document.querySelector('.pulses')?.remove();
   try {
-    const m = await (await fetch('https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json')).json();
+    const m = await (await fetch('https://data.caramelo.dev.br/latest/manifest.json')).json();
     const tables = Object.keys(m.tables).length;
     const rows = Object.values(m.tables).reduce((a, t) => a + t.rows, 0);
     const hours = Math.max(0, Math.round((Date.now() - new Date(m.generated_at)) / 36e5));

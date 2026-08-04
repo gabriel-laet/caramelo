@@ -1,6 +1,6 @@
 # Caramelo — Data Documentation
 
-Base URL: `https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev`
+Base URL: `https://data.caramelo.dev.br`
 
 - `latest/<table>.parquet` — current version of each table (zstd Parquet)
 - `latest/manifest.json` — row counts, byte sizes, sha256 per table
@@ -11,7 +11,7 @@ Query any table directly with DuckDB, no download step:
 
 ```sql
 SELECT nome_autor, sum(valor_pago) AS pago
-FROM 'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'
+FROM 'https://data.caramelo.dev.br/latest/emendas.parquet'
 WHERE is_transferencia_especial AND ano >= 2023
 GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 ```

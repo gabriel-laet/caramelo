@@ -9,13 +9,13 @@
 
 All data is served from a public R2 bucket with free egress. Tables are plain
 Parquet, queryable directly over HTTP (DuckDB: `SELECT * FROM
-'https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/emendas.parquet'`).
+'https://data.caramelo.dev.br/latest/emendas.parquet'`).
 Person-level entity resolution links emenda authors to Câmara/Senado ids
 (99.2% of 2021+ individual-emenda paid value resolved).
 
 ## Data
 
-- [Manifest (JSON)](https://pub-b18c9a8d60c74f5080b0a1abd4045f2b.r2.dev/latest/manifest.json): current tables, row counts, sha256 content hashes, generation timestamp
+- [Manifest (JSON)](https://data.caramelo.dev.br/latest/manifest.json): current tables, row counts, sha256 content hashes, generation timestamp
 - [Data documentation (Markdown)](/docs/data.md): every table, its columns, source, and update cadence
 - [Events documentation (Markdown)](/docs/events.md): event taxonomy and webhook subscription API
 
