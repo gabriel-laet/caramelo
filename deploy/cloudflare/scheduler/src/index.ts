@@ -15,6 +15,8 @@ export class HarvestContainer extends Container<Env> {
     CARAMELO_R2_BUCKET: this.env.CARAMELO_R2_BUCKET,
     CARAMELO_PUBLISH_TARGET: "r2",
     PYTHONUNBUFFERED: "1",
+    CARAMELO_SEARCHAPI_KEY: this.env.SEARCHAPI_KEY,
+    CARAMELO_MEDIA_BUDGET: "25",
   };
 }
 
@@ -25,6 +27,7 @@ interface Env {
   CARAMELO_R2_ENDPOINT: string;
   CARAMELO_R2_BUCKET: string;
   TRIGGER_TOKEN: string;
+  SEARCHAPI_KEY: string;
 }
 
 async function startHarvest(env: Env): Promise<void> {

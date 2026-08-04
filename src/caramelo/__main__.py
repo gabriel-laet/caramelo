@@ -120,6 +120,12 @@ def main(argv: list[str] | None = None) -> None:
         ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)
         ibge.harvest(args.data_dir)
         siconfi.harvest(args.data_dir, exercicio, periodo)
+        from caramelo.harvesters import redes
+        redes.harvest(args.data_dir)
+        if os.environ.get("CARAMELO_SEARCHAPI_KEY"):
+            from caramelo import media
+            media.harvest(args.data_dir,
+                          int(os.environ.get("CARAMELO_MEDIA_BUDGET", "25")))
         authors.resolve(args.data_dir)
         publish(args.data_dir, os.environ.get(
             "CARAMELO_PUBLISH_TARGET", "local:data/published"))

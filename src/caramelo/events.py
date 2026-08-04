@@ -50,6 +50,38 @@ def derive_events(data_dir: Path, changed: list[str], manifest: dict,
                           .get(name, {}).get("rows")),
         })
 
+    if prev_manifest and "redes_sociais" in changed:
+        prev_file = (prev_manifest["tables"].get("redes_sociais") or {}).get("file")
+        prev_bytes = target.get(f"latest/{prev_file}") if prev_file else None
+        if prev_bytes:
+            def account_keys(path: Path) -> dict[tuple, dict]:
+                return {
+                    (r["parlamentar_id"], r["rede"], r["handle"]): r
+                    for r in pq.read_table(path).to_pylist()
+                    if r["handle"]
+                }
+            with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
+                tmp.write(prev_bytes)
+                tmp.flush()
+                old_accounts = account_keys(Path(tmp.name))
+            new_accounts = account_keys(data_dir / "redes_sociais.parquet")
+            for key, r in new_accounts.items():
+                if key not in old_accounts:
+                    events.append({
+                        "type": "rede.added", "at": at, "casa": r["casa"],
+                        "parlamentar_id": r["parlamentar_id"],
+                        "nome": r["nome"], "rede": r["rede"],
+                        "handle": r["handle"], "url": r["url"],
+                    })
+            for key, r in old_accounts.items():
+                if key not in new_accounts:
+                    events.append({
+                        "type": "rede.removed", "at": at, "casa": r["casa"],
+                        "parlamentar_id": r["parlamentar_id"],
+                        "nome": r["nome"], "rede": r["rede"],
+                        "handle": r["handle"],
+                    })
+
     if prev_manifest and "emendas" in changed:
         prev_file = (prev_manifest["tables"].get("emendas") or {}).get("file")
         prev_bytes = target.get(f"latest/{prev_file}") if prev_file else None
