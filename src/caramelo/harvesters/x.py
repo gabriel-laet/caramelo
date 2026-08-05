@@ -179,11 +179,17 @@ def harvest(data_dir: Path, reads_budget: int = 350,
             resp = get(f"{API}/users/{user['user_id']}/tweets", params=params,
                        headers={"Authorization": f"Bearer {_bearer()}"}).json()
         except RuntimeError as exc:
-            # 402 = X pay-per-use balance exhausted: stop cleanly, keep data
-            if "402" in str(exc.__cause__ or exc):
+            cause = str(exc.__cause__ or exc)
+            if "402" in cause:
+                # X pay-per-use balance exhausted: stop cleanly, keep data
                 print("x: 402 Payment Required — X credit exhausted, "
                       "stopping run and keeping partial data")
                 break
+            if any(code in cause for code in ("401", "403", "404")):
+                # protected/suspended/deleted account: skip this author
+                print(f"x: skipping @{user['handle']} ({cause[:60]})")
+                covered += 1
+                continue
             raise
         posts = resp.get("data", [])
         ledger.log("users/:id/tweets", len(posts), user["handle"])
