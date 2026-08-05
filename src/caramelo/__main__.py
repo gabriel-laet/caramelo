@@ -47,6 +47,9 @@ def main(argv: list[str] | None = None) -> None:
     resolve = sub.add_parser("resolve", help="build entity-resolution tables")
     resolve.add_argument("entity", choices=["autores"])
 
+    enrich = sub.add_parser("enrich", help="build derived (enrichment) tables")
+    enrich.add_argument("dataset", choices=["categorias"])
+
     pub = sub.add_parser("publish",
                          help="publish tables + manifest + events to a target")
     pub.add_argument("--target", default=os.environ.get(
@@ -106,6 +109,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
+    elif args.command == "enrich" and args.dataset == "categorias":
+        from caramelo.enrich import categorias
+        categorias.enrich(args.data_dir)
     elif args.command == "publish":
         from caramelo.publish import publish
         publish(args.data_dir, args.target)
