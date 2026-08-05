@@ -30,6 +30,7 @@ API = "https://api.twitter.com/2"
 USERS_SCHEMA = pa.schema([
     ("user_id", pa.string()),
     ("handle", pa.string()),
+    ("casa", pa.string()),  # camara | senado
     ("parlamentar_id", pa.int64()),
     ("nome", pa.string()),
     ("followers", pa.int64()),
@@ -40,6 +41,7 @@ POSTS_SCHEMA = pa.schema([
     ("post_id", pa.string()),
     ("user_id", pa.string()),
     ("handle", pa.string()),
+    ("casa", pa.string()),  # camara | senado
     ("parlamentar_id", pa.int64()),
     ("created_at", pa.string()),
     ("text", pa.string()),
@@ -106,6 +108,7 @@ def resolve_users(data_dir: Path, ledger: ReadLedger) -> list[dict]:
             metrics = u.get("public_metrics", {})
             users.append({
                 "user_id": u["id"], "handle": u["username"].lower(),
+                "casa": "camara",
                 "parlamentar_id": src["parlamentar_id"], "nome": src["nome"],
                 "followers": metrics.get("followers_count"),
                 "tweets_total": metrics.get("tweet_count"),
@@ -126,6 +129,9 @@ def _existing_posts(data_dir: Path):
     if not path.exists():
         return None, {}, set()
     table = pq.read_table(path)
+    if "casa" not in table.column_names:  # upgrade pre-senate files
+        table = table.add_column(
+            3, "casa", pa.array(["camara"] * table.num_rows))
     since: dict[str, str] = {}
     ids: set[str] = set()
     for r in table.select(["user_id", "post_id"]).to_pylist():
@@ -202,6 +208,7 @@ def harvest(data_dir: Path, reads_budget: int = 350,
             rows.append({
                 "post_id": p["id"], "user_id": user["user_id"],
                 "handle": user["handle"],
+                "casa": user.get("casa") or "camara",
                 "parlamentar_id": user["parlamentar_id"],
                 "created_at": p.get("created_at"), "text": p.get("text"),
                 "likes": metrics.get("like_count"),
