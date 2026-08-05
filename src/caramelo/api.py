@@ -8,6 +8,7 @@ so REST and MCP stay in lockstep by construction.
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from caramelo import domain
 
@@ -17,6 +18,11 @@ app = FastAPI(
     description=(
         "Open, politically-neutral data layer for Brazilian public data. "
         "All endpoints are read-only queries over the public Parquet lake."),
+)
+
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["GET"],
+    allow_headers=["*"],
 )
 
 
@@ -68,6 +74,22 @@ def municipio(codigo_ibge: str) -> dict:
     if not result:
         raise HTTPException(404, "município não encontrado")
     return result
+
+
+@app.get("/detector/shows", operation_id="detector_shows",
+         summary="Municípios with both Pix money and gazette show contracts")
+def detector_shows(ano_min: int = 2023, pop_max: int = Query(100000, le=1000000),
+                   limit: int = Query(50, le=200)) -> list[dict]:
+    return domain.show_detector(lake(), ano_min=ano_min, pop_max=pop_max,
+                                limit=limit)
+
+
+@app.get("/emendas/categorias", operation_id="emendas_categorias",
+         summary="Emenda money by practical category (enrichment layer)")
+def emendas_categorias(ano_min: int = 2021,
+                       apenas_pix: bool = False) -> list[dict]:
+    return domain.categorias_resumo(lake(), ano_min=ano_min,
+                                    apenas_pix=apenas_pix)
 
 
 @app.get("/busca", operation_id="busca",

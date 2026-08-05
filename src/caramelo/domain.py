@@ -147,7 +147,7 @@ def governismo(lake: Lake, *, min_votos: int = 200,
 # ------------------------------------------------------------- municípios
 
 def municipio(lake: Lake, codigo_ibge: str) -> dict:
-    """Município overview: identity, population, emendas totals by year."""
+    """Município overview: identity, population, emendas, categories, gazettes."""
     base = lake.q(f"""
         SELECT codigo_ibge, nome, uf, regiao, populacao
         FROM {lake.table('municipios')} WHERE codigo_ibge = ?""",
@@ -164,7 +164,71 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
         FROM {lake.table('emendas')}
         WHERE codigo_ibge_municipio = ? GROUP BY ano ORDER BY ano""",
         [codigo_ibge])
+    out["categorias"] = lake.q(f"""
+        SELECT c.categoria, round(sum(e.valor_empenhado), 2) AS empenhado
+        FROM {lake.table('emendas')} e
+        JOIN {lake.table('emendas_categorias')} c
+          ON e.codigo_emenda = c.codigo_emenda
+         AND e.codigo_acao IS NOT DISTINCT FROM c.codigo_acao
+         AND e.codigo_plano_orcamentario IS NOT DISTINCT FROM c.codigo_plano_orcamentario
+        WHERE e.codigo_ibge_municipio = ?
+        GROUP BY 1 ORDER BY 2 DESC""", [codigo_ibge])
+    try:
+        out["gazetas_shows"] = lake.q(f"""
+            SELECT term, data, url FROM {lake.table('gazetas')}
+            WHERE codigo_ibge = ? AND (term LIKE '%show%' OR term LIKE '%art%')
+            ORDER BY data DESC LIMIT 20""", [codigo_ibge])
+    except Exception:
+        out["gazetas_shows"] = []
     return out
+
+
+def show_detector(lake: Lake, *, ano_min: int = 2023, pop_max: int = 100000,
+                  limit: int = 50) -> list[dict]:
+    """Municípios that received emendas Pix AND published show/artist
+    contracts in their gazettes — the lead detector. Co-occurrence, not
+    proof of financing source."""
+    return lake.q(f"""
+        WITH pix AS (
+            SELECT codigo_ibge_municipio AS codigo_ibge,
+                   sum(valor_empenhado) AS pix_rs,
+                   any_value(nome_autor) AS um_autor
+            FROM {lake.table('emendas')}
+            WHERE is_transferencia_especial AND ano >= ?
+              AND codigo_ibge_municipio IS NOT NULL
+            GROUP BY 1
+        ), shows AS (
+            SELECT codigo_ibge, count(*) AS mencoes, max(data) AS ultima
+            FROM {lake.table('gazetas')}
+            WHERE term LIKE '%show%' OR term LIKE '%art%'
+            GROUP BY 1
+        )
+        SELECT m.codigo_ibge, m.nome, m.uf, m.populacao,
+               round(p.pix_rs, 2) AS pix,
+               round(p.pix_rs / m.populacao, 2) AS per_capita,
+               s.mencoes, s.ultima, p.um_autor
+        FROM pix p JOIN shows s USING (codigo_ibge)
+        JOIN {lake.table('municipios')} m USING (codigo_ibge)
+        WHERE m.populacao > 0 AND m.populacao < ?
+        ORDER BY per_capita DESC LIMIT ?""", [ano_min, pop_max, limit])
+
+
+def categorias_resumo(lake: Lake, *, ano_min: int = 2021,
+                      apenas_pix: bool = False) -> list[dict]:
+    """Emenda money by practical category (from the enrichment layer)."""
+    where = "e.ano >= ?"
+    if apenas_pix:
+        where += " AND e.is_transferencia_especial"
+    return lake.q(f"""
+        SELECT c.categoria, c.confianca, count(*) AS emendas,
+               round(sum(e.valor_empenhado), 2) AS empenhado
+        FROM {lake.table('emendas')} e
+        JOIN {lake.table('emendas_categorias')} c
+          ON e.codigo_emenda = c.codigo_emenda
+         AND e.codigo_acao IS NOT DISTINCT FROM c.codigo_acao
+         AND e.codigo_plano_orcamentario IS NOT DISTINCT FROM c.codigo_plano_orcamentario
+        WHERE {where}
+        GROUP BY 1, 2 ORDER BY empenhado DESC""", [ano_min])
 
 
 def busca(lake: Lake, q: str, limit: int = 10) -> dict:

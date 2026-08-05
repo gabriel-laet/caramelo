@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorar — Caramelo</title>
+<meta name="description" content="Explore o dinheiro público brasileiro: rankings de emendas Pix, detector de shows, perfis de políticos e municípios.">
+<style>
+  :root { color-scheme: light dark; --caramel: #d98e3b; --caramel-deep: #b06a1e; --muted: #8a8a8a;
+          --card: color-mix(in srgb, currentColor 5%, transparent);
+          --border: color-mix(in srgb, currentColor 14%, transparent); }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; line-height: 1.5;
+         max-width: 60rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
+  a { color: var(--caramel-deep); text-decoration: none; }
+  @media (prefers-color-scheme: dark) { a { color: var(--caramel); } }
+  a:hover { text-decoration: underline; }
+  header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  h1 { font-size: 1.7rem; letter-spacing: -.02em; }
+  h1 a { color: inherit; }
+  .sub { color: var(--muted); font-size: .9rem; }
+  .search { position: relative; margin: 1.2rem 0; }
+  .search input { width: 100%; padding: .7rem .9rem; font-size: 1rem; border-radius: 10px;
+                  border: 1px solid var(--border); background: var(--card); color: inherit; }
+  .results { position: absolute; z-index: 5; left: 0; right: 0; background: Canvas;
+             border: 1px solid var(--border); border-radius: 10px; margin-top: 4px;
+             max-height: 20rem; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .results a { display: block; padding: .5rem .8rem; color: inherit; border-bottom: 1px solid var(--border); }
+  .results a:hover { background: var(--card); text-decoration: none; }
+  .results .tag { color: var(--muted); font-size: .78rem; margin-left: .4rem; }
+  nav.tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: 1rem 0 1.4rem; }
+  .tabs button { border: 1px solid var(--border); background: var(--card); color: inherit;
+                 padding: .4rem .8rem; border-radius: 999px; cursor: pointer; font-size: .88rem; }
+  .tabs button.active { background: var(--caramel); color: #1a1205; border-color: var(--caramel); font-weight: 600; }
+  h2 { font-size: 1.15rem; margin: .2rem 0 .8rem; }
+  .note { color: var(--muted); font-size: .85rem; margin-bottom: 1rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 4px; background: var(--caramel); opacity: .85; }
+  .barcell { min-width: 90px; }
+  .loading { color: var(--muted); padding: 1.5rem 0; }
+  .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; background: var(--card);
+          border: 1px solid var(--border); font-size: .78rem; }
+  .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem,1fr)); gap: .7rem; margin: 1rem 0; }
+  .stat { border: 1px solid var(--border); border-radius: 10px; padding: .7rem .9rem; }
+  .stat b { display: block; font-size: 1.3rem; color: var(--caramel-deep); font-variant-numeric: tabular-nums; }
+  @media (prefers-color-scheme: dark) { .stat b { color: var(--caramel); } }
+  .stat span { color: var(--muted); font-size: .8rem; }
+  footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="/">🐕 Caramelo</a> · Explorar</h1>
+  <span class="sub">o dinheiro público, navegável</span>
+</header>
+
+<div class="search">
+  <input id="q" type="search" placeholder="Busque um político ou município (ex.: Nikolas, Coxixola)…" autocomplete="off">
+  <div id="results" class="results" hidden></div>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-view="pix" class="active">Top emendas Pix</button>
+  <button data-view="percapita">Pix per capita</button>
+  <button data-view="detector">Detector de shows</button>
+  <button data-view="categorias">Para onde vai</button>
+  <button data-view="governismo">Governismo</button>
+</nav>
+
+<main id="view"><div class="loading">carregando…</div></main>
+
+<footer>
+  Dados públicos oficiais via <a href="https://api.caramelo.dev.br/docs">API Caramelo</a> ·
+  <a href="/docs/data.md">documentação</a> ·
+  co-ocorrência não é prova; o detector aponta pistas, não condena.
+</footer>
+
+<script>
+const API = "https://api.caramelo.dev.br";
+const brl = n => "R$ " + Math.round(n).toLocaleString("pt-BR");
+const el = (h) => { const d = document.createElement("div"); d.innerHTML = h; return d.firstElementChild; };
+const view = document.getElementById("view");
+
+async function get(path) { const r = await fetch(API + path); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+function table(cols, rows, maxVal) {
+  const head = cols.map(c => `<th class="${c.num?'num':''}">${c.label}</th>`).join("");
+  const body = rows.map(r => "<tr>" + cols.map(c => {
+    let v = c.get(r);
+    if (c.bar) {
+      const w = Math.max(2, Math.round(100 * c.barVal(r) / maxVal));
+      return `<td class="barcell"><div class="bar" style="width:${w}%"></div></td>`;
+    }
+    return `<td class="${c.num?'num':''}">${v}</td>`;
+  }).join("") + "</tr>").join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+const VIEWS = {
+  async pix() {
+    const d = await get("/emendas/autores?apenas_pix=true&limit=30");
+    const max = d[0].empenhado;
+    return `<h2>Maiores autores de emendas Pix (2023+)</h2>
+      <p class="note">Transferências especiais, por valor empenhado. Senadores dominam — cotas individuais maiores.</p>` +
+      table([
+        {label:"#", get:(r)=>d.indexOf(r)+1},
+        {label:"Autor", get:(r)=>`<b>${r.nome_autor}</b> <span class="pill">${r.uf||"?"}</span>`},
+        {label:"", bar:true, barVal:(r)=>r.empenhado},
+        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
+      ], d, max);
+  },
+  async percapita() {
+    const d = await get("/rankings/pix-per-capita?limit=30");
+    const max = d[0].per_capita;
+    return `<h2>Pix per capita por município</h2>
+      <p class="note">Emenda Pix empenhada ÷ população. Pequenos municípios com muito dinheiro por habitante.</p>` +
+      table([
+        {label:"Município", get:(r)=>`<a href="/explorar.html#m/${r.codigo_ibge||''}">${r.nome}</a> <span class="pill">${r.uf}</span>`},
+        {label:"Pop.", num:true, get:(r)=>r.populacao.toLocaleString("pt-BR")},
+        {label:"", bar:true, barVal:(r)=>r.per_capita},
+        {label:"Por hab.", num:true, get:(r)=>brl(r.per_capita)},
+        {label:"Total", num:true, get:(r)=>brl(r.empenhado)},
+      ], d, max);
+  },
+  async detector() {
+    const d = await get("/detector/shows?limit=40");
+    const max = d[0].per_capita;
+    return `<h2>Detector de shows</h2>
+      <p class="note">Municípios que receberam Pix <b>e</b> publicaram contratos de show no diário oficial.
+      Pista, não prova — a co-ocorrência não confirma a origem do cachê.</p>` +
+      table([
+        {label:"Município", get:(r)=>`<a href="/explorar.html#m/${r.codigo_ibge}">${r.nome}</a> <span class="pill">${r.uf}</span>`},
+        {label:"Pop.", num:true, get:(r)=>r.populacao.toLocaleString("pt-BR")},
+        {label:"Pix/hab", num:true, get:(r)=>brl(r.per_capita)},
+        {label:"Menções", num:true, get:(r)=>r.mencoes},
+        {label:"Autor ex.", get:(r)=>r.um_autor||"—"},
+      ], d, max);
+  },
+  async categorias() {
+    const d = await get("/emendas/categorias?apenas_pix=false");
+    const agg = {};
+    for (const r of d) agg[r.categoria] = (agg[r.categoria]||0) + r.empenhado;
+    const rows = Object.entries(agg).map(([categoria,empenhado])=>({categoria,empenhado})).sort((a,b)=>b.empenhado-a.empenhado);
+    const max = rows[0].empenhado;
+    return `<h2>Para onde vai o dinheiro das emendas</h2>
+      <p class="note">Categoria prática de cada emenda (camada de enriquecimento: regras + classificação por IA).</p>` +
+      table([
+        {label:"Categoria", get:(r)=>r.categoria},
+        {label:"", bar:true, barVal:(r)=>r.empenhado},
+        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
+      ], rows, max);
+  },
+  async governismo() {
+    const d = await get("/indices/governismo?limit=400");
+    d.sort((a,b)=>b.governismo-a.governismo);
+    const top = d.slice(0,15), bottom = d.slice(-15).reverse();
+    const render = (list) => table([
+      {label:"Deputado", get:(r)=>`${r.nome} <span class="pill">${r.partido||''}</span>`},
+      {label:"Alinhamento", num:true, get:(r)=>(r.governismo*100).toFixed(0)+"%"},
+      {label:"Votos", num:true, get:(r)=>r.votos},
+    ], list, 1);
+    return `<h2>Governismo</h2>
+      <p class="note">Concordância com a orientação da bancada do Governo (plenário 2023+, mín. 200 votos).</p>
+      <h3 style="margin:.6rem 0 .3rem;font-size:.95rem;color:var(--muted)">Mais governistas</h3>${render(top)}
+      <h3 style="margin:1rem 0 .3rem;font-size:.95rem;color:var(--muted)">Menos governistas</h3>${render(bottom)}`;
+  },
+};
+
+async function showView(name) {
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.view===name));
+  view.innerHTML = `<div class="loading">carregando…</div>`;
+  try { view.innerHTML = await VIEWS[name](); }
+  catch(e) { view.innerHTML = `<p class="note">erro ao carregar (${e.message}). a API pode estar iniciando — tente de novo.</p>`; }
+}
+
+async function showMunicipio(ibge) {
+  view.innerHTML = `<div class="loading">carregando município…</div>`;
+  try {
+    const m = await get("/municipios/" + ibge);
+    const totalPix = (m.emendas_por_ano||[]).reduce((a,y)=>a+(y.pix||0),0);
+    const totalEmp = (m.emendas_por_ano||[]).reduce((a,y)=>a+(y.empenhado||0),0);
+    const cats = (m.categorias||[]).slice(0,8);
+    const maxCat = cats.length ? cats[0].empenhado : 1;
+    const shows = m.gazetas_shows||[];
+    view.innerHTML = `
+      <h2>${m.nome} <span class="pill">${m.uf}</span></h2>
+      <div class="profile-grid">
+        <div class="stat"><b>${(m.populacao||0).toLocaleString("pt-BR")}</b><span>habitantes</span></div>
+        <div class="stat"><b>${brl(totalEmp)}</b><span>emendas empenhadas</span></div>
+        <div class="stat"><b>${brl(totalPix)}</b><span>via Pix</span></div>
+        <div class="stat"><b>${shows.length}</b><span>menções de show no diário</span></div>
+      </div>
+      <h3 style="font-size:.95rem;color:var(--muted);margin:.8rem 0 .4rem">Para onde foi (categorias)</h3>
+      ${cats.length ? table([
+        {label:"Categoria", get:(r)=>r.categoria},
+        {label:"", bar:true, barVal:(r)=>r.empenhado},
+        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
+      ], cats, maxCat) : '<p class="note">sem dados de categoria.</p>'}
+      ${shows.length ? `<h3 style="font-size:.95rem;color:var(--muted);margin:1rem 0 .4rem">Contratos de show no diário oficial</h3>
+        <table><thead><tr><th>Data</th><th>Termo</th><th>Fonte</th></tr></thead><tbody>
+        ${shows.map(g=>`<tr><td>${g.data}</td><td>${g.term}</td><td><a href="${g.url}" target="_blank" rel="noopener">diário →</a></td></tr>`).join("")}
+        </tbody></table>` : ""}
+      <p class="note" style="margin-top:1rem"><a href="/explorar.html">← voltar aos rankings</a></p>`;
+  } catch(e) { view.innerHTML = `<p class="note">município não encontrado ou API iniciando (${e.message}). <a href="/explorar.html">voltar</a></p>`; }
+}
+
+async function showPolitico(id) {
+  view.innerHTML = `<div class="loading">carregando político…</div>`;
+  try {
+    const p = await get("/politicos/" + id);
+    const totalEmp = (p.emendas||[]).reduce((a,y)=>a+(y.pago||0),0);
+    const totalCeap = (p.ceap||[]).reduce((a,y)=>a+(y.gasto||0),0);
+    view.innerHTML = `
+      <h2>${p.nome} <span class="pill">${p.partido||''} ${p.uf||''}</span></h2>
+      <div class="profile-grid">
+        <div class="stat"><b>${brl(totalEmp)}</b><span>emendas pagas</span></div>
+        <div class="stat"><b>${brl(totalCeap)}</b><span>cota parlamentar (CEAP)</span></div>
+        <div class="stat"><b>${(p.redes||[]).length}</b><span>redes declaradas</span></div>
+      </div>
+      ${(p.redes||[]).length ? `<p class="note">${p.redes.map(r=>`<a href="${r.url}" target="_blank" rel="noopener">${r.rede}${r.handle?': @'+r.handle:''}</a>`).join(" · ")}</p>`:""}
+      <h3 style="font-size:.95rem;color:var(--muted);margin:.8rem 0 .4rem">Emendas por ano</h3>
+      ${(p.emendas||[]).length ? table([
+        {label:"Ano", get:(r)=>r.ano},
+        {label:"Emendas", num:true, get:(r)=>r.emendas},
+        {label:"Pago", num:true, get:(r)=>brl(r.pago)},
+      ], p.emendas, 1) : '<p class="note">sem emendas registradas.</p>'}
+      <p class="note" style="margin-top:1rem"><a href="/explorar.html">← voltar</a></p>`;
+  } catch(e) { view.innerHTML = `<p class="note">não encontrado (${e.message}). <a href="/explorar.html">voltar</a></p>`; }
+}
+
+// search (debounced)
+let searchTimer;
+const q = document.getElementById("q"), results = document.getElementById("results");
+q.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const term = q.value.trim();
+  if (term.length < 3) { results.hidden = true; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const d = await get("/busca?q=" + encodeURIComponent(term));
+      const items = [];
+      for (const p of (d.politicos||[])) if (p.deputado_id)
+        items.push(`<a href="/explorar.html#p/${p.deputado_id}">${p.nome}<span class="tag">deputado ${p.partido||''} ${p.uf||''}</span></a>`);
+      for (const m of (d.municipios||[]))
+        items.push(`<a href="/explorar.html#m/${m.codigo_ibge}">${m.nome}<span class="tag">município ${m.uf}</span></a>`);
+      results.innerHTML = items.join("") || `<div style="padding:.6rem .8rem;color:var(--muted)">nada encontrado</div>`;
+      results.hidden = false;
+    } catch { results.hidden = true; }
+  }, 250);
+});
+document.addEventListener("click", (e) => { if (!q.parentElement.contains(e.target)) results.hidden = true; });
+
+document.getElementById("tabs").addEventListener("click", (e) => {
+  if (e.target.dataset.view) { history.replaceState(null,"","/explorar.html"); showView(e.target.dataset.view); }
+});
+
+function route() {
+  const h = location.hash.slice(1);
+  results.hidden = true;
+  if (h.startsWith("m/")) return showMunicipio(h.slice(2));
+  if (h.startsWith("p/")) return showPolitico(h.slice(2));
+  showView("pix");
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
