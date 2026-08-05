@@ -76,6 +76,29 @@ def municipio_entes(data_dir: Path, uf: str | None = None) -> tuple[str, ...]:
                  if uf is None or r["uf"] == uf.upper())
 
 
+ALL_UFS = ("AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG",
+           "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR",
+           "RS", "SC", "SE", "SP", "TO")
+
+
+def rotating_municipal_entes(data_dir: Path, ufs_per_run: int) -> tuple[str, ...]:
+    """Next batch of municípios for the daily sweep: a rotating window of
+    UFs, so the full 5,570-ente coverage accrues across ~a week of runs
+    (shards make re-visits nearly free)."""
+    state_path = data_dir / "siconfi_cursor.json"
+    start = 0
+    if state_path.exists():
+        start = json.loads(state_path.read_text()).get("uf_index", 0)
+    batch = [ALL_UFS[(start + i) % len(ALL_UFS)] for i in range(ufs_per_run)]
+    state_path.write_text(json.dumps(
+        {"uf_index": (start + ufs_per_run) % len(ALL_UFS)}))
+    entes: list[str] = []
+    for uf in batch:
+        entes.extend(municipio_entes(data_dir, uf))
+    print(f"siconfi sweep batch: {'+'.join(batch)} ({len(entes)} municípios)")
+    return tuple(entes)
+
+
 def harvest(data_dir: Path, exercicio: int, periodo: int,
             entes: tuple[str, ...] = UF_ENTES) -> Path:
     shard_dir = data_dir / "raw" / "siconfi" / f"{exercicio}-{periodo}"

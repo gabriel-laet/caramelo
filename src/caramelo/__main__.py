@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> None:
     harvest.add_argument("source",
                          choices=["emendas", "deputados", "senadores",
                                   "votacoes", "municipios", "siconfi", "ceap",
-                                  "redes", "media"])
+                                  "redes", "media", "x"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -35,6 +35,11 @@ def main(argv: list[str] | None = None) -> None:
                          help="siconfi: sweep municípios of one UF, or 'all'")
     harvest.add_argument("--budget", type=int, default=25,
                          help="media: max SearchApi credits this run")
+    harvest.add_argument("--reads-budget", type=int, default=350,
+                         help="x: max post-reads this run (US$0.005 each)")
+    harvest.add_argument("--backfill", action="store_true",
+                         help="x: pull latest page per author instead of "
+                              "incremental since_id")
     harvest.add_argument("--engine", default="google_news",
                          help="media: SearchApi engine (google_news, google, "
                               "youtube, ...)")
@@ -95,6 +100,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "harvest" and args.source == "media":
         from caramelo import media
         media.harvest(args.data_dir, args.budget, args.engine)
+    elif args.command == "harvest" and args.source == "x":
+        from caramelo.harvesters import x
+        x.harvest(args.data_dir, args.reads_budget, args.backfill)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
@@ -120,12 +128,21 @@ def main(argv: list[str] | None = None) -> None:
         ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)
         ibge.harvest(args.data_dir)
         siconfi.harvest(args.data_dir, exercicio, periodo)
+        ufs_per_run = int(os.environ.get("CARAMELO_SICONFI_UFS_PER_RUN", "4"))
+        if ufs_per_run > 0:
+            siconfi.harvest(args.data_dir, exercicio, periodo,
+                            siconfi.rotating_municipal_entes(
+                                args.data_dir, ufs_per_run))
         from caramelo.harvesters import redes
         redes.harvest(args.data_dir)
         if os.environ.get("CARAMELO_SEARCHAPI_KEY"):
             from caramelo import media
             media.harvest(args.data_dir,
                           int(os.environ.get("CARAMELO_MEDIA_BUDGET", "25")))
+        if os.environ.get("CARAMELO_X_BEARER"):
+            from caramelo.harvesters import x
+            x.harvest(args.data_dir,
+                      int(os.environ.get("CARAMELO_X_READS", "350")))
         authors.resolve(args.data_dir)
         publish(args.data_dir, os.environ.get(
             "CARAMELO_PUBLISH_TARGET", "local:data/published"))
