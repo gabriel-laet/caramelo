@@ -148,12 +148,26 @@ def harvest(data_dir: Path, reads_budget: int = 350,
         start = json.loads(state_path.read_text()).get("index", 0) % len(users)
     order = users[start:] + users[:start]
 
+    out_path = data_dir / "posts.parquet"
+
+    def flush() -> None:
+        nonlocal existing, rows
+        if not rows:
+            return
+        table = pa.Table.from_pylist(rows, schema=POSTS_SCHEMA)
+        if existing is not None:
+            table = pa.concat_tables([existing, table])
+        pq.write_table(table, out_path, compression="zstd")
+        existing, rows = table, []
+
     rows: list[dict] = []
     fetched_at = _now()
     covered = 0
     for offset, user in enumerate(order):
         if ledger.exhausted():
             break
+        if backfill and user["user_id"] in since_by_user:
+            continue  # resume: this author's backfill page already stored
         params: dict = {
             "max_results": 100,
             "tweet.fields": "created_at,public_metrics,referenced_tweets",
@@ -161,8 +175,16 @@ def harvest(data_dir: Path, reads_budget: int = 350,
         since = since_by_user.get(user["user_id"])
         if since and not backfill:
             params["since_id"] = since
-        resp = get(f"{API}/users/{user['user_id']}/tweets", params=params,
-                   headers={"Authorization": f"Bearer {_bearer()}"}).json()
+        try:
+            resp = get(f"{API}/users/{user['user_id']}/tweets", params=params,
+                       headers={"Authorization": f"Bearer {_bearer()}"}).json()
+        except RuntimeError as exc:
+            # 402 = X pay-per-use balance exhausted: stop cleanly, keep data
+            if "402" in str(exc.__cause__ or exc):
+                print("x: 402 Payment Required — X credit exhausted, "
+                      "stopping run and keeping partial data")
+                break
+            raise
         posts = resp.get("data", [])
         ledger.log("users/:id/tweets", len(posts), user["handle"])
         covered += 1
@@ -183,19 +205,18 @@ def harvest(data_dir: Path, reads_budget: int = 350,
                 "ref_type": refs[0]["type"] if refs else None,
                 "fetched_at": fetched_at,
             })
+        if covered % 25 == 0:
+            flush()  # paid reads must never be lost to a crash
         time.sleep(0.3)
 
     if not backfill:
         state_path.write_text(json.dumps(
             {"index": (start + covered) % len(users)}))
 
-    out_path = data_dir / "posts.parquet"
-    table = pa.Table.from_pylist(rows, schema=POSTS_SCHEMA)
-    if existing is not None:
-        table = pa.concat_tables([existing, table])
-    pq.write_table(table, out_path, compression="zstd")
+    flush()
+    total = pq.read_metadata(out_path).num_rows if out_path.exists() else 0
     est = ledger.spent * 0.005
-    print(f"x: {covered}/{len(users)} authors, {len(rows)} new posts "
+    print(f"x: {covered}/{len(users)} authors visited "
           f"({ledger.spent} reads ≈ US$ {est:.2f}) -> {out_path} "
-          f"({table.num_rows} total)")
+          f"({total} posts total)")
     return out_path
