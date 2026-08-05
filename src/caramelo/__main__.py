@@ -22,7 +22,8 @@ def main(argv: list[str] | None = None) -> None:
     harvest.add_argument("source",
                          choices=["emendas", "deputados", "senadores",
                                   "votacoes", "municipios", "siconfi", "ceap",
-                                  "redes", "media", "x", "favorecidos"])
+                                  "redes", "media", "x", "favorecidos",
+                                  "gazetas"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -109,6 +110,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "harvest" and args.source == "favorecidos":
         from caramelo.harvesters import favorecidos
         favorecidos.harvest(args.data_dir)
+    elif args.command == "harvest" and args.source == "gazetas":
+        from caramelo.harvesters import gazetas
+        gazetas.harvest(args.data_dir)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
@@ -156,6 +160,8 @@ def main(argv: list[str] | None = None) -> None:
             from caramelo.harvesters import x
             x.harvest(args.data_dir,
                       int(os.environ.get("CARAMELO_X_READS", "350")))
+        from caramelo.harvesters import gazetas
+        gazetas.harvest(args.data_dir)
         authors.resolve(args.data_dir)
         publish(args.data_dir, target_spec)
         state.push(args.data_dir, make_target(target_spec))
