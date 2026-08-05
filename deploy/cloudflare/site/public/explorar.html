@@ -89,12 +89,11 @@ async function get(path) { const r = await fetch(API + path); if (!r.ok) throw n
 function table(cols, rows, maxVal) {
   const head = cols.map(c => `<th class="${c.num?'num':''}">${c.label}</th>`).join("");
   const body = rows.map(r => "<tr>" + cols.map(c => {
-    let v = c.get(r);
     if (c.bar) {
       const w = Math.max(2, Math.round(100 * c.barVal(r) / maxVal));
       return `<td class="barcell"><div class="bar" style="width:${w}%"></div></td>`;
     }
-    return `<td class="${c.num?'num':''}">${v}</td>`;
+    return `<td class="${c.num?'num':''}">${c.get(r)}</td>`;
   }).join("") + "</tr>").join("");
   return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
