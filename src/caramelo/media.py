@@ -77,6 +77,50 @@ class SearchApiClient:
                    for l in self.ledger.read_text().splitlines() if l)
 
 
+TRENDS_SCHEMA = pa.schema([
+    ("nome_autor", pa.string()),
+    ("date", pa.string()),
+    ("interesse", pa.int32()),
+    ("fetched_at", pa.string()),
+])
+
+
+def harvest_trends(data_dir: Path, budget: int = 10) -> Path:
+    """Google Trends interest-over-time per politician (0-100, daily points,
+    rolling 3-month window). Append-only; (nome, date) deduped keeping the
+    freshest fetch."""
+    client = SearchApiClient(data_dir, budget)
+    fetched_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    out_path = data_dir / "trends.parquet"
+
+    rows: list[dict] = []
+    for nome in priority_targets(data_dir, limit=budget):
+        try:
+            resp = client.search("google_trends", q=nome.title(), geo="BR",
+                                 time="today 3-m", data_type="TIMESERIES")
+        except BudgetExhausted:
+            break
+        for p in (resp.get("interest_over_time", {})
+                      .get("timeline_data", [])):
+            value = (p.get("values") or [{}])[0].get("extracted_value")
+            date = time.strftime("%Y-%m-%d",
+                                 time.gmtime(int(p["timestamp"])))
+            rows.append({"nome_autor": nome, "date": date,
+                         "interesse": value, "fetched_at": fetched_at})
+
+    table = pa.Table.from_pylist(rows, schema=TRENDS_SCHEMA)
+    if out_path.exists():
+        merged: dict[tuple, dict] = {}
+        for r in pq.read_table(out_path).to_pylist() + rows:
+            merged[(r["nome_autor"], r["date"])] = r
+        table = pa.Table.from_pylist(list(merged.values()),
+                                     schema=TRENDS_SCHEMA)
+    pq.write_table(table, out_path, compression="zstd")
+    print(f"trends: {client.spent} queries, {len(rows)} points "
+          f"-> {out_path} ({table.num_rows} total)")
+    return out_path
+
+
 def priority_targets(data_dir: Path, limit: int) -> list[str]:
     """Author names ranked by emendas-Pix money moved since 2023 —
     the politicians whose media trail matters most right now."""

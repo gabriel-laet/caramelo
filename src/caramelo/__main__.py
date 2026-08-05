@@ -24,7 +24,7 @@ def main(argv: list[str] | None = None) -> None:
                                   "votacoes", "municipios", "siconfi", "ceap",
                                   "redes", "media", "x", "favorecidos",
                                   "gazetas", "transferegov", "ceaps",
-                                  "senado-votos", "tse"])
+                                  "senado-votos", "tse", "trends"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -127,6 +127,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "harvest" and args.source == "tse":
         from caramelo.harvesters import tse
         tse.harvest(args.data_dir)
+    elif args.command == "harvest" and args.source == "trends":
+        from caramelo import media
+        media.harvest_trends(args.data_dir, args.budget)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
@@ -170,6 +173,9 @@ def main(argv: list[str] | None = None) -> None:
             from caramelo import media
             media.harvest(args.data_dir,
                           int(os.environ.get("CARAMELO_MEDIA_BUDGET", "25")))
+            media.harvest_trends(args.data_dir,
+                                 int(os.environ.get("CARAMELO_TRENDS_BUDGET",
+                                                    "10")))
         if os.environ.get("CARAMELO_X_BEARER"):
             from caramelo.harvesters import x
             x.harvest(args.data_dir,
