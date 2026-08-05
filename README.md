@@ -22,50 +22,84 @@ Canonical home: [caramelo.dev.br](https://caramelo.dev.br)
 
 ## Status
 
-v0.1 — the first harvesters work end-to-end:
+Live and self-running: a daily cloud pipeline harvests ~15 official sources,
+resolves entities, enriches, and publishes ~29 Parquet tables (3M+ rows) to a
+public bucket — served through a REST API, an MCP server, signed webhooks, and
+a browsable explorer.
 
 ```bash
 pip install -e .
-caramelo harvest emendas     # 94k emendas 2014-2026 (bulk, no auth) -> Parquet
-caramelo harvest deputados   # Câmara API, legislaturas 55-57
-caramelo harvest senadores   # Senado API, legislaturas 55-57
-caramelo harvest votacoes    # Câmara bulk: 41k votações, 468k roll-call votes,
-                             # 15k party orientations (2023-2026)
-caramelo harvest municipios  # IBGE: all 5,571 municípios + population
-caramelo harvest siconfi     # Tesouro RREO budget reports (default: 27 UFs;
-                             # --municipios RR|all sweeps municípios, sharded
-                             # + resumable + rate-limited)
-caramelo harvest ceap        # 761k parliamentary expense receipts 2023-2026,
-                             # supplier CNPJs, 100% deputado-id join integrity
+caramelo run-all             # harvest everything -> resolve -> enrich -> publish
+# or a single source:
+caramelo harvest emendas     # 94k emendas 2014-2026 (bulk, no auth)
+caramelo harvest favorecidos # 816k payments by final recipient
+caramelo harvest transferegov# emendas-Pix planos + declared purposes
+caramelo harvest gazetas     # municipal gazette mentions (Querido Diário)
+caramelo harvest tse         # federal candidacies + campaign donations
+caramelo harvest x           # deputy/senator X timelines (budget-aware)
 caramelo resolve autores     # author-name -> person crosswalk (both chambers)
+caramelo enrich categorias-llm  # rule + LLM emenda categorization
 ```
 
-`examples/demo_rankings.py` shows what the joined tables already answer: top
-emendas-Pix authors, Pix money per capita by município, and deputy
-governismo / party-discipline indexes over 468k roll-call votes.
-
-Resolution is person-level: an author row carries a `deputado_id`, a
-`senador_id`, or both (many parliamentarians served in both chambers), with
-homonyms split by the author's modal destination UF. Coverage for individual
-emendas from 2021 on: **99.2% of rows and of paid value (R$ 85.5B)** resolve
-to a person; 0.1% ambiguous (4 homonym names); 0.6% unmatched. Roll-call
-votes join the deputados table with 100% id integrity.
+Author resolution is person-level (a row carries `deputado_id`, `senador_id`,
+or both), homonyms split by modal destination UF: **99.2% of 2021+
+individual-emenda rows and paid value resolve to a person**. `examples/`
+shows the joined tables in action (top Pix authors, per-capita anomalies,
+the Pix∩gazette show-detector, governismo indexes).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the plan and
 [RESEARCH.md](RESEARCH.md) for the verified source map (every endpoint listed
 was probed live before inclusion).
 
-## Roadmap (v0.x)
+## Roadmap
+
+### v0.x — data foundation ✅
 
 1. ~~Emendas harvester (bulk, auth-free) + author resolution~~ ✅
 2. ~~Person-level author crosswalk (dual-chamber ids, homonyms split by UF)~~ ✅
 3. ~~Câmara bulk harvester: votações, votos, orientações~~ ✅
 4. ~~SICONFI + IBGE dimension tables~~ ✅
 5. ~~CEAP expenses harvester~~ ✅
-6. ~~Sharded/resumable municipal SICONFI sweep~~ ✅ (full 5,570-ente run is
-   an ops task for the scheduled pipeline)
-7. Git-scraping pipeline: harvest → diff → event log → webhooks
-8. REST API, then MCP server
+6. ~~Sharded/resumable municipal SICONFI sweep~~ ✅
+
+### v0.2 — full source map ✅
+
+7. ~~Favorecidos (816k emenda payments by final recipient, w/ legal nature)~~ ✅
+8. ~~TransfereGov — emendas-Pix planos de ação/trabalho + declared purposes~~ ✅
+9. ~~Senado — nominal votes + CEAPS expense quota~~ ✅
+10. ~~TSE — federal candidacies + campaign donations~~ ✅
+11. ~~Querido Diário — municipal gazette mentions (show contracts, etc.)~~ ✅
+12. ~~CNPJ/CNAE + QSA registry enrichment (minhareceita)~~ ✅
+13. ~~Social & media — declared handles, X timelines, Google News/YouTube/Trends~~ ✅
+
+### v0.3 — pipeline & delivery ✅
+
+14. ~~Cloud pipeline: daily cron → harvest → resolve → publish → R2 (100% Cloudflare)~~ ✅
+15. ~~Diff-driven typed events → Queues → **public signed webhooks** (HMAC, self-signup)~~ ✅
+16. ~~REST API + MCP server (`api.` / `mcp.caramelo.dev.br`)~~ ✅
+17. ~~Enrichment tier: rule + LLM (Cloudflare AI Gateway) emenda categorization~~ ✅
+18. ~~Landing page, docs, `llms.txt`, and a public data explorer with charts~~ ✅
+
+### Next
+
+- Map view — per-capita / show-detector choropleth (the shareable artifact)
+- Chart interaction layer (hover/tooltips) and shareable case cards (OG images)
+- Deeper enrichment: gazette-excerpt extraction, `votacoes_temas`,
+  speech/post stance profiles, donor-owner (QSA ↔ TSE) unmasking
+- The opinionated **product** layer — a separate project with its own name
+  that consumes this data through the public API, and finally has a point of view
+
+## The stack, live
+
+| Surface | URL |
+|---------|-----|
+| Landing + explorer + docs | [caramelo.dev.br](https://caramelo.dev.br) · [/explorar](https://caramelo.dev.br/explorar.html) |
+| Data lake (Parquet, free egress) | [data.caramelo.dev.br](https://data.caramelo.dev.br/latest/manifest.json) |
+| REST API | [api.caramelo.dev.br/docs](https://api.caramelo.dev.br/docs) |
+| MCP server | `https://mcp.caramelo.dev.br/` |
+| Webhooks | [/docs/events.md](https://caramelo.dev.br/docs/events.md) |
+
+~29 tables, 3M+ rows, harvested daily and published autonomously.
 
 ## License
 
