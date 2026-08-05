@@ -112,9 +112,13 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "run-all":
         import time as _time
 
+        from caramelo import state
         from caramelo.harvesters import camara, camara_bulk, ceap, emendas, ibge, senado, siconfi
-        from caramelo.publish import publish
+        from caramelo.publish import make_target, publish
         from caramelo.resolution import authors
+        target_spec = os.environ.get("CARAMELO_PUBLISH_TARGET",
+                                     "local:data/published")
+        state.seed(args.data_dir, make_target(target_spec))
         now = _time.gmtime()
         # SICONFI publishes each bimester with ~2 months of lag
         exercicio = args.exercicio or (now.tm_year if now.tm_mon > 3
@@ -144,8 +148,8 @@ def main(argv: list[str] | None = None) -> None:
             x.harvest(args.data_dir,
                       int(os.environ.get("CARAMELO_X_READS", "350")))
         authors.resolve(args.data_dir)
-        publish(args.data_dir, os.environ.get(
-            "CARAMELO_PUBLISH_TARGET", "local:data/published"))
+        publish(args.data_dir, target_spec)
+        state.push(args.data_dir, make_target(target_spec))
 
 
 if __name__ == "__main__":
