@@ -7,10 +7,11 @@
   "containers": [
     {
       "class_name": "HarvestContainer",
-      // Built from the repo Dockerfile on deploy (Workers Builds / any
-      // environment with Docker). To deploy a pre-pushed image instead,
-      // set a registry.cloudflare.com/... reference here.
-      "image": "../../../Dockerfile",
+      // Pre-pushed registry image (see deploy/cloudflare/build-images.sh).
+      // Pinned so Workers Builds / `wrangler deploy` never rebuilds the
+      // container in CI — deploys just re-apply this image. Bump the tag
+      // after pushing a new image when the Python harvester changes.
+      "image": "registry.cloudflare.com/2cdbde3608c5914c43e4433fd39ba6b2/caramelo:cf5",
       "instance_type": "standard-1",
       "max_instances": 1
     }

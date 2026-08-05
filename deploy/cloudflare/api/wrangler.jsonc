@@ -8,7 +8,7 @@
   "containers": [
     {
       "class_name": "ApiContainer",
-      "image": "../../../Dockerfile.api",
+      "image": "registry.cloudflare.com/2cdbde3608c5914c43e4433fd39ba6b2/caramelo-api:cf4",
       "instance_type": "standard-1",
       "max_instances": 1
     }
