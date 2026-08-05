@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SEED_TABLES = ("posts", "x_users", "media", "senadores_x", "gazetas")
+SEED_TABLES = ("posts", "x_users", "media", "senadores_x", "gazetas",
+               "tse_candidatos", "tse_receitas")
 STATE_FILES = ("x_cursor.json", "siconfi_cursor.json")
 
 

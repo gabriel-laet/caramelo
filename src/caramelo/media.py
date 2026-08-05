@@ -93,30 +93,57 @@ def priority_targets(data_dir: Path, limit: int) -> list[str]:
             sorted(sums.items(), key=lambda kv: -kv[1])[:limit]]
 
 
+def extract_results(engine: str, resp: dict) -> list[dict]:
+    """Normalize each engine's result shape to title/link/source/date/snippet."""
+    out: list[dict] = []
+    if engine == "youtube":
+        for r in resp.get("videos", []):
+            out.append({
+                "title": r.get("title"), "link": r.get("link"),
+                "source": (r.get("channel") or {}).get("title"),
+                "date_raw": r.get("published_time"),
+                "snippet": r.get("description"),
+            })
+        return out
+    for r in resp.get("organic_results", []):
+        source = r.get("source")
+        out.append({
+            "title": r.get("title"), "link": r.get("link"),
+            "source": (source.get("name") if isinstance(source, dict)
+                       else source),
+            "date_raw": r.get("date"), "snippet": r.get("snippet"),
+        })
+    return out
+
+
 def harvest(data_dir: Path, budget: int = 25,
             engine: str = "google_news") -> Path:
     client = SearchApiClient(data_dir, budget)
     fetched_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
+    cargo_by_nome: dict[str, str] = {}
+    crosswalk = data_dir / "autores_crosswalk.parquet"
+    if crosswalk.exists():
+        for r in pq.read_table(crosswalk).to_pylist():
+            cargo_by_nome[r["nome_autor"]] = (
+                "senador" if r["senador_id"] else "deputado")
+
     rows: list[dict] = []
     targets = priority_targets(data_dir, limit=budget)
     covered = 0
     for nome in targets:
+        hl = "pt" if engine == "youtube" else "pt-br"
+        # qualify the query with the mandate to cut homonym noise
+        q = f"{cargo_by_nome.get(nome, '')} {nome}".strip()
         try:
-            resp = client.search(engine, q=nome, gl="br", hl="pt-br")
+            resp = client.search(engine, q=q, gl="br", hl=hl)
         except BudgetExhausted:
             break
         covered += 1
-        for i, r in enumerate(resp.get("organic_results", []), 1):
-            source = r.get("source")
-            rows.append({
-                "fetched_at": fetched_at, "engine": engine, "query": nome,
-                "nome_autor": nome, "position": i,
-                "title": r.get("title"), "link": r.get("link"),
-                "source": (source.get("name") if isinstance(source, dict)
-                           else source),
-                "date_raw": r.get("date"), "snippet": r.get("snippet"),
-            })
+        for i, r in enumerate(extract_results(engine, resp), 1):
+            rows.append({"fetched_at": fetched_at, "engine": engine,
+                         "query": nome, "nome_autor": nome, "position": i,
+                         **r})
 
     out_path = data_dir / "media.parquet"
     table = pa.Table.from_pylist(rows, schema=MEDIA_SCHEMA)
