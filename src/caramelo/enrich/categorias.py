@@ -81,6 +81,13 @@ def classify(texts: dict[str, str | None]) -> tuple[str, str, str]:
 
 
 def enrich(data_dir: Path) -> Path:
+    llm_cache: dict[tuple, str] = {}
+    cache_path = data_dir / "llm_categorias.parquet"
+    if cache_path.exists():
+        for r in pq.read_table(cache_path).to_pylist():
+            llm_cache[(r["codigo_acao"], r["codigo_plano_orcamentario"])] = \
+                r["categoria"]
+
     rows: list[dict] = []
     stats: Counter = Counter()
     for r in pq.read_table(
@@ -95,6 +102,11 @@ def enrich(data_dir: Path) -> Path:
             "subfuncao": r["nome_subfuncao"],
             "funcao": r["nome_funcao"],
         })
+        if categoria == "indefinido":
+            llm_cat = llm_cache.get(
+                (r["codigo_acao"], r["codigo_plano_orcamentario"]))
+            if llm_cat:
+                categoria, confianca, evidencia = llm_cat, "llm", "workers-ai"
         stats[categoria] += 1
         rows.append({
             "codigo_emenda": r["codigo_emenda"], "ano": r["ano"],

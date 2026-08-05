@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> None:
     resolve.add_argument("entity", choices=["autores"])
 
     enrich = sub.add_parser("enrich", help="build derived (enrichment) tables")
-    enrich.add_argument("dataset", choices=["categorias"])
+    enrich.add_argument("dataset", choices=["categorias", "categorias-llm"])
 
     pub = sub.add_parser("publish",
                          help="publish tables + manifest + events to a target")
@@ -136,6 +136,10 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "enrich" and args.dataset == "categorias":
         from caramelo.enrich import categorias
         categorias.enrich(args.data_dir)
+    elif args.command == "enrich" and args.dataset == "categorias-llm":
+        from caramelo.enrich import categorias, llm
+        llm.classify_indefinidos(args.data_dir)
+        categorias.enrich(args.data_dir)
     elif args.command == "publish":
         from caramelo.publish import publish
         publish(args.data_dir, args.target)
@@ -188,6 +192,11 @@ def main(argv: list[str] | None = None) -> None:
         ceaps.harvest(args.data_dir)
         senado_votos.harvest(args.data_dir)
         authors.resolve(args.data_dir)
+        from caramelo.enrich import categorias
+        if os.environ.get("CARAMELO_AI_TOKEN"):
+            from caramelo.enrich import llm
+            llm.classify_indefinidos(args.data_dir)
+        categorias.enrich(args.data_dir)
         publish(args.data_dir, target_spec)
         state.push(args.data_dir, make_target(target_spec))
 
