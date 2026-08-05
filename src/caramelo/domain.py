@@ -231,6 +231,96 @@ def categorias_resumo(lake: Lake, *, ano_min: int = 2021,
         GROUP BY 1, 2 ORDER BY empenhado DESC""", [ano_min])
 
 
+def partidos(lake: Lake, *, min_votos: int = 100) -> list[dict]:
+    """Per-party aggregates: size, mean governismo, mean party discipline,
+    total emendas — the material for cross-party comparison charts."""
+    gov = lake.q(f"""
+        WITH g AS (
+            SELECT id_votacao, orientacao FROM {lake.table('orientacoes')}
+            WHERE bancada = 'Governo' AND orientacao IN ('Sim','Não')
+        ), dep AS (
+            SELECT v.deputado_id,
+                   max_by(v.partido, v.data_hora_voto) AS partido,
+                   avg(CASE WHEN v.voto = g.orientacao THEN 1.0 ELSE 0 END) AS governismo,
+                   count(*) AS votos
+            FROM {lake.table('votos')} v JOIN g USING (id_votacao)
+            WHERE v.voto IN ('Sim','Não')
+            GROUP BY 1 HAVING count(*) >= ?
+        )
+        SELECT partido, count(*) AS deputados,
+               round(avg(governismo), 4) AS governismo_medio
+        FROM dep WHERE partido IS NOT NULL AND partido <> ''
+        GROUP BY 1 ORDER BY deputados DESC""", [min_votos])
+    return gov
+
+
+def comparar(lake: Lake, id_a: int, id_b: int) -> dict:
+    """Two deputies side by side for a comparison view."""
+    return {"a": politico(lake, id_a), "b": politico(lake, id_b)}
+
+
+def top_favorecidos(lake: Lake, *, limit: int = 30,
+                    apenas_empresas: bool = True) -> list[dict]:
+    """Largest final recipients of emenda money, with registry activity
+    (CNAE) when known — the execution-side red-flag surface."""
+    where = "f.favorecido_codigo IS NOT NULL AND length(f.favorecido_codigo) = 14"
+    if apenas_empresas:
+        where += (" AND f.natureza_juridica NOT LIKE '%Município%'"
+                  " AND f.natureza_juridica NOT LIKE '%Órgão Público%'"
+                  " AND f.natureza_juridica NOT LIKE '%Fundo Público%'")
+    return lake.q(f"""
+        SELECT f.favorecido_codigo AS cnpj, any_value(f.favorecido) AS nome,
+               any_value(f.natureza_juridica) AS natureza,
+               cj.cnae_descricao AS atividade,
+               round(sum(f.valor_recebido), 2) AS recebido,
+               count(DISTINCT f.nome_autor) AS n_autores
+        FROM {lake.table('favorecidos')} f
+        LEFT JOIN {lake.table('cnpjs')} cj ON cj.cnpj = f.favorecido_codigo
+        WHERE {where}
+        GROUP BY 1, cj.cnae_descricao
+        ORDER BY recebido DESC LIMIT ?""", [limit])
+
+
+def trends_politico(lake: Lake, nome_autor: str) -> list[dict]:
+    try:
+        return lake.q(f"""
+            SELECT date, interesse FROM {lake.table('trends')}
+            WHERE nome_autor = ? ORDER BY date""", [nome_autor])
+    except Exception:
+        return []
+
+
+# Tables safe to expose row-sampled through /tabela/{name}
+BROWSABLE_TABLES = (
+    "emendas", "favorecidos", "deputados", "senadores", "votacoes", "votos",
+    "orientacoes", "ceap", "ceaps", "municipios", "siconfi_rreo",
+    "redes_sociais", "media", "trends", "posts", "x_users", "senadores_x",
+    "gazetas", "tse_candidatos", "tse_receitas", "cnpjs", "socios",
+    "pix_planos_acao", "pix_planos_trabalho", "pix_finalidades", "pix_metas",
+    "emendas_categorias", "autores_crosswalk",
+)
+
+
+def list_tables(lake: Lake) -> list[dict]:
+    out = []
+    for name in BROWSABLE_TABLES:
+        try:
+            n = lake.q(f"SELECT count(*) AS n FROM {lake.table(name)}")[0]["n"]
+            cols = lake.q(f"SELECT * FROM {lake.table(name)} LIMIT 0")
+            out.append({"tabela": name, "linhas": n,
+                        "colunas": list(cols[0].keys()) if cols else []})
+        except Exception:
+            continue
+    return out
+
+
+def sample_table(lake: Lake, name: str, limit: int = 50) -> dict:
+    if name not in BROWSABLE_TABLES:
+        return {}
+    rows = lake.q(f"SELECT * FROM {lake.table(name)} LIMIT ?", [limit])
+    return {"tabela": name, "amostra": rows}
+
+
 def busca(lake: Lake, q: str, limit: int = 10) -> dict:
     """Free-text lookup across politicians and municípios."""
     pattern = f"%{q.upper()}%"

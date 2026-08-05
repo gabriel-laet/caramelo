@@ -43,6 +43,19 @@
   .loading { color: var(--muted); padding: 1.5rem 0; }
   .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; background: var(--card);
           border: 1px solid var(--border); font-size: .78rem; }
+  /* validated categorical palette (dataviz skill): slot1 blue, slot2 orange */
+  :root { --s1: #2a78d6; --s2: #eb6834; --grid: color-mix(in srgb, currentColor 12%, transparent); }
+  @media (prefers-color-scheme: dark) { :root { --s1:#3987e5; --s2:#d95926; } }
+  .chart { width: 100%; overflow-x: auto; margin: .3rem 0 1rem; }
+  .chart svg { display:block; width:100%; height:auto; }
+  .chart text { fill: var(--muted); font-size: 11px; }
+  .chart .val { fill: currentColor; font-weight: 600; }
+  .legend { display:flex; gap:1rem; font-size:.85rem; margin:.2rem 0 .6rem; flex-wrap:wrap; }
+  .legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:.35rem; vertical-align:baseline; }
+  .cmp-inputs { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin-bottom:1rem; }
+  .cmp-inputs input { padding:.55rem .7rem; border-radius:9px; border:1px solid var(--border); background:var(--card); color:inherit; width:100%; }
+  .mini { position:relative; }
+  .mini .results { max-height:14rem; }
   .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem,1fr)); gap: .7rem; margin: 1rem 0; }
   .stat { border: 1px solid var(--border); border-radius: 10px; padding: .7rem .9rem; }
   .stat b { display: block; font-size: 1.3rem; color: var(--caramel-deep); font-variant-numeric: tabular-nums; }
@@ -67,7 +80,11 @@
   <button data-view="percapita">Pix per capita</button>
   <button data-view="detector">Detector de shows</button>
   <button data-view="categorias">Para onde vai</button>
+  <button data-view="partidos">Partidos</button>
   <button data-view="governismo">Governismo</button>
+  <button data-view="favorecidos">Recebedores</button>
+  <button data-view="compare">Comparar</button>
+  <button data-view="tabelas">Tabelas</button>
 </nav>
 
 <main id="view"><div class="loading">carregando…</div></main>
@@ -96,6 +113,55 @@ function table(cols, rows, maxVal) {
     return `<td class="${c.num?'num':''}">${c.get(r)}</td>`;
   }).join("") + "</tr>").join("");
   return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// --- SVG charts (theme-aware, dependency-free) ---
+function svgHBars(rows, {label, value, fmt, pct}) {
+  const max = Math.max(...rows.map(value), 1);
+  const rh = 26, w = 640, labelW = 160, valW = 82, barW = w - labelW - valW;
+  const h = rows.length * rh + 6;
+  const bars = rows.map((r, i) => {
+    const y = i * rh + 3, bw = Math.max(2, (value(r) / max) * barW);
+    const v = pct ? (value(r) * 100).toFixed(0) + "%" : fmt(value(r));
+    return `<text x="0" y="${y+15}" >${label(r)}</text>
+      <rect x="${labelW}" y="${y+4}" width="${bw}" height="14" rx="4" fill="var(--s1)"/>
+      <text class="val" x="${labelW+bw+6}" y="${y+15}">${v}</text>`;
+  }).join("");
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet">${bars}</svg></div>`;
+}
+
+function svgLine(points, {fmt}) {
+  if (!points.length) return '<p class="note">sem série temporal.</p>';
+  const w = 640, h = 180, pad = 28;
+  const xs = points.map((_, i) => pad + i * (w - pad*2) / Math.max(1, points.length - 1));
+  const max = Math.max(...points.map(p => p.v), 1);
+  const ys = points.map(p => h - pad - (p.v / max) * (h - pad*2));
+  const path = xs.map((x, i) => `${i?'L':'M'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const area = `M${xs[0]},${h-pad} ` + xs.map((x,i)=>`L${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ") + ` L${xs[xs.length-1]},${h-pad} Z`;
+  const ticks = points.filter((_,i)=> i % Math.ceil(points.length/6) === 0);
+  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}">
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--grid)"/>
+    <path d="${area}" fill="var(--s1)" opacity=".12"/>
+    <path d="${path}" fill="none" stroke="var(--s1)" stroke-width="2"/>
+    ${ticks.map(p=>{const i=points.indexOf(p);return `<text x="${xs[i]}" y="${h-8}" text-anchor="middle">${p.d.slice(5)}</text>`}).join("")}
+    <text x="${pad}" y="14" >pico ${fmt(max)}</text>
+  </svg></div>`;
+}
+
+function svgGroupedBars(groups, {aLabel, bLabel}) {
+  const w = 640, gh = 54, h = groups.length * gh + 24, labelW = 150, valW = 90;
+  const barW = w - labelW - valW;
+  const body = groups.map((g, i) => {
+    const y = i * gh + 20, max = Math.max(g.a, g.b, 1);
+    const aw = Math.max(2, (g.a/max)*barW), bw = Math.max(2, (g.b/max)*barW);
+    return `<text x="0" y="${y+8}">${g.label}</text>
+      <rect x="${labelW}" y="${y}" width="${aw}" height="13" rx="4" fill="var(--s1)"/>
+      <text class="val" x="${labelW+aw+5}" y="${y+11}">${g.fa(g.a)}</text>
+      <rect x="${labelW}" y="${y+17}" width="${bw}" height="13" rx="4" fill="var(--s2)"/>
+      <text class="val" x="${labelW+bw+5}" y="${y+28}">${g.fb(g.b)}</text>`;
+  }).join("");
+  return `<div class="legend"><span><i style="background:var(--s1)"></i>${aLabel}</span><span><i style="background:var(--s2)"></i>${bLabel}</span></div>
+    <div class="chart"><svg viewBox="0 0 ${w} ${h}">${body}</svg></div>`;
 }
 
 const VIEWS = {
@@ -143,14 +209,37 @@ const VIEWS = {
     const agg = {};
     for (const r of d) agg[r.categoria] = (agg[r.categoria]||0) + r.empenhado;
     const rows = Object.entries(agg).map(([categoria,empenhado])=>({categoria,empenhado})).sort((a,b)=>b.empenhado-a.empenhado);
-    const max = rows[0].empenhado;
     return `<h2>Para onde vai o dinheiro das emendas</h2>
       <p class="note">Categoria prática de cada emenda (camada de enriquecimento: regras + classificação por IA).</p>` +
+      svgHBars(rows, {label:r=>r.categoria, value:r=>r.empenhado, fmt:brl});
+  },
+  async partidos() {
+    const d = await get("/indices/partidos");
+    d.sort((a,b)=>b.governismo_medio-a.governismo_medio);
+    return `<h2>Governismo médio por partido</h2>
+      <p class="note">Concordância média com a orientação da bancada do Governo, por partido (deputados com ≥100 votos). Barra = % de alinhamento.</p>` +
+      svgHBars(d, {label:r=>`${r.partido} (${r.deputados})`, value:r=>r.governismo_medio, pct:true});
+  },
+  async favorecidos() {
+    const d = await get("/favorecidos?limit=25");
+    return `<h2>Maiores recebedores de emenda (empresas)</h2>
+      <p class="note">Destinatários finais do dinheiro, com atividade econômica (CNAE) quando conhecida. Bancos públicos aparecem como operadores de repasse — não são o destino final.</p>` +
       table([
-        {label:"Categoria", get:(r)=>r.categoria},
-        {label:"", bar:true, barVal:(r)=>r.empenhado},
-        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
-      ], rows, max);
+        {label:"Empresa", get:(r)=>`<b>${(r.nome||'').slice(0,34)}</b>`},
+        {label:"Atividade (CNAE)", get:(r)=>`<span style="color:var(--muted)">${(r.atividade||'—').slice(0,42)}</span>`},
+        {label:"Autores", num:true, get:(r)=>r.n_autores},
+        {label:"Recebido", num:true, get:(r)=>brl(r.recebido)},
+      ], d, 1);
+  },
+  async tabelas() {
+    const d = await get("/tabelas");
+    return `<h2>Todas as tabelas (${d.length})</h2>
+      <p class="note">Cada tabela do lake é navegável. Clique para ver uma amostra. Dados brutos, mesma fonte da API pública.</p>` +
+      table([
+        {label:"Tabela", get:(r)=>`<a href="/explorar.html#t/${r.tabela}">${r.tabela}</a>`},
+        {label:"Linhas", num:true, get:(r)=>r.linhas.toLocaleString("pt-BR")},
+        {label:"Colunas", get:(r)=>`<span style="color:var(--muted);font-size:.82rem">${r.colunas.join(", ")}</span>`},
+      ], d, 1);
   },
   async governismo() {
     const d = await get("/indices/governismo?limit=400");
@@ -170,9 +259,76 @@ const VIEWS = {
 
 async function showView(name) {
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.view===name));
+  if (name === "compare") return showCompareForm();
   view.innerHTML = `<div class="loading">carregando…</div>`;
   try { view.innerHTML = await VIEWS[name](); }
   catch(e) { view.innerHTML = `<p class="note">erro ao carregar (${e.message}). a API pode estar iniciando — tente de novo.</p>`; }
+}
+
+function miniSearch(slot) {
+  return `<div class="mini">
+    <input id="cmp-${slot}" placeholder="${slot==='a'?'Primeiro':'Segundo'} deputado…" autocomplete="off">
+    <div id="cmpr-${slot}" class="results" hidden></div></div>`;
+}
+
+function showCompareForm(a, b) {
+  view.innerHTML = `<h2>Comparar deputados</h2>
+    <p class="note">Busque dois deputados para comparar emendas, cota parlamentar e alinhamento.</p>
+    <div class="cmp-inputs">${miniSearch('a')}${miniSearch('b')}</div>
+    <div id="cmp-out"></div>`;
+  for (const slot of ['a','b']) {
+    const inp = document.getElementById('cmp-'+slot), res = document.getElementById('cmpr-'+slot);
+    let t;
+    inp.addEventListener('input', () => {
+      clearTimeout(t); const term = inp.value.trim();
+      if (term.length < 3) { res.hidden = true; return; }
+      t = setTimeout(async () => {
+        const d = await get("/busca?q=" + encodeURIComponent(term));
+        res.innerHTML = (d.politicos||[]).filter(p=>p.deputado_id).map(p =>
+          `<a data-id="${p.deputado_id}" data-nome="${p.nome}">${p.nome}<span class="tag">${p.partido||''} ${p.uf||''}</span></a>`).join("")
+          || `<div style="padding:.5rem .8rem;color:var(--muted)">nada</div>`;
+        res.hidden = false;
+        res.querySelectorAll('a').forEach(el => el.onclick = () => {
+          inp.value = el.dataset.nome; res.hidden = true;
+          inp.dataset.id = el.dataset.id; tryCompare();
+        });
+      }, 250);
+    });
+  }
+}
+
+async function tryCompare() {
+  const ia = document.getElementById('cmp-a'), ib = document.getElementById('cmp-b');
+  if (!ia.dataset.id || !ib.dataset.id) return;
+  const out = document.getElementById('cmp-out');
+  out.innerHTML = `<div class="loading">comparando…</div>`;
+  try {
+    const d = await get(`/comparar?a=${ia.dataset.id}&b=${ib.dataset.id}`);
+    const A = d.a, B = d.b;
+    const sum = (arr,k)=> (arr||[]).reduce((s,x)=>s+(x[k]||0),0);
+    const gov = async (id) => { try { const g = await get('/indices/governismo?limit=600'); const r = g.find(x=>x.deputado_id===id); return r?r.governismo:0; } catch { return 0; } };
+    const groups = [
+      {label:"Emendas pagas", a:sum(A.emendas,'pago'), b:sum(B.emendas,'pago'), fa:brl, fb:brl},
+      {label:"Cota (CEAP)", a:sum(A.ceap,'gasto'), b:sum(B.ceap,'gasto'), fa:brl, fb:brl},
+      {label:"Redes declaradas", a:(A.redes||[]).length, b:(B.redes||[]).length, fa:String, fb:String},
+    ];
+    out.innerHTML = `<h3 style="margin:.4rem 0">${A.nome} <span class="pill">${A.partido||''} ${A.uf||''}</span> &nbsp;vs&nbsp; ${B.nome} <span class="pill">${B.partido||''} ${B.uf||''}</span></h3>`
+      + svgGroupedBars(groups, {aLabel:A.nome, bLabel:B.nome});
+  } catch(e) { out.innerHTML = `<p class="note">erro (${e.message})</p>`; }
+}
+
+async function showTable(name) {
+  view.innerHTML = `<div class="loading">carregando tabela…</div>`;
+  try {
+    const d = await get("/tabela/" + name + "?limit=50");
+    const rows = d.amostra || [];
+    if (!rows.length) { view.innerHTML = `<p class="note">tabela vazia. <a href="/explorar.html#tabelas">voltar</a></p>`; return; }
+    const cols = Object.keys(rows[0]);
+    view.innerHTML = `<h2>${name} <span class="pill">amostra de ${rows.length}</span></h2>
+      <p class="note"><a href="/explorar.html#tabelas">← todas as tabelas</a> · <a href="https://data.caramelo.dev.br/latest/${name}.parquet">baixar Parquet completo</a></p>
+      <div class="chart"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td style="max-width:16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c]===null?'—':String(r[c]).slice(0,80)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  } catch(e) { view.innerHTML = `<p class="note">erro (${e.message}). <a href="/explorar.html#tabelas">voltar</a></p>`; }
 }
 
 async function showMunicipio(ibge) {
@@ -261,6 +417,8 @@ function route() {
   results.hidden = true;
   if (h.startsWith("m/")) return showMunicipio(h.slice(2));
   if (h.startsWith("p/")) return showPolitico(h.slice(2));
+  if (h.startsWith("t/")) return showTable(h.slice(2));
+  if (h === "compare") return showView("compare");
   showView("pix");
 }
 window.addEventListener("hashchange", route);

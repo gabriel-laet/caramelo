@@ -92,6 +92,41 @@ def emendas_categorias(ano_min: int = 2021,
                                     apenas_pix=apenas_pix)
 
 
+@app.get("/indices/partidos", operation_id="partidos",
+         summary="Per-party size and mean governismo")
+def partidos(min_votos: int = 100) -> list[dict]:
+    return domain.partidos(lake(), min_votos=min_votos)
+
+
+@app.get("/comparar", operation_id="comparar",
+         summary="Compare two deputies side by side")
+def comparar(a: int, b: int) -> dict:
+    return domain.comparar(lake(), a, b)
+
+
+@app.get("/favorecidos", operation_id="favorecidos",
+         summary="Largest final recipients of emenda money, with CNAE")
+def favorecidos(limit: int = Query(30, le=200),
+                apenas_empresas: bool = True) -> list[dict]:
+    return domain.top_favorecidos(lake(), limit=limit,
+                                  apenas_empresas=apenas_empresas)
+
+
+@app.get("/tabelas", operation_id="tabelas",
+         summary="List all browsable lake tables with row counts and columns")
+def tabelas() -> list[dict]:
+    return domain.list_tables(lake())
+
+
+@app.get("/tabela/{name}", operation_id="tabela",
+         summary="Sample rows from any lake table")
+def tabela(name: str, limit: int = Query(50, le=200)) -> dict:
+    result = domain.sample_table(lake(), name, limit=limit)
+    if not result:
+        raise HTTPException(404, "tabela não disponível")
+    return result
+
+
 @app.get("/busca", operation_id="busca",
          summary="Free-text search across politicians and municípios")
 def busca(q: str, limit: int = Query(10, le=50)) -> dict:
