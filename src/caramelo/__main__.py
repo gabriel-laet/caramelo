@@ -270,10 +270,19 @@ def main(argv: list[str] | None = None) -> None:
                   f"{', '.join(failed)}")
         authors.resolve(args.data_dir)
         from caramelo.enrich import categorias
+        # Enrichment is derived data: a failure here must not block publishing
+        # the freshly harvested tables (the previous enrichment is carried
+        # forward by publish).
         if os.environ.get("CARAMELO_AI_TOKEN"):
-            from caramelo.enrich import llm
-            llm.classify_indefinidos(args.data_dir)
-        categorias.enrich(args.data_dir)
+            try:
+                from caramelo.enrich import llm
+                llm.classify_indefinidos(args.data_dir)
+            except Exception as exc:
+                print(f"run-all: llm enrichment failed: {exc!r}")
+        try:
+            categorias.enrich(args.data_dir)
+        except Exception as exc:
+            print(f"run-all: categorias enrichment failed: {exc!r}")
         publish(args.data_dir, target_spec)
         state.push(args.data_dir, make_target(target_spec))
 
