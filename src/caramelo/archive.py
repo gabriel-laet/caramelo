@@ -2,9 +2,10 @@
 
 The archive is deliberately a *separate root* from the data dir: `publish`
 globs `data_dir/*.parquet`, so anything written here is never published.
-Raw audio, captions and full transcripts of third-party recordings (TV
-debates, politicians' channels) stay on the local network; only metadata
-and derived tables go to the public lake.
+Raw audio, caption files and info.json of third-party recordings (TV
+debates, politicians' channels) stay on the local network. Transcript
+*text* is public: `transcribe` copies the compiled transcricoes.parquet
+into the data dir, so it is published with the other tables.
 
 Root: $CARAMELO_ARCHIVE_DIR (e.g. an NFS/SMB mount of the NAS), else
 ./archive.
