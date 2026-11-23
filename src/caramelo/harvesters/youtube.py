@@ -389,74 +389,98 @@ def harvest(data_dir: Path, *, units: int | None = None,
         return True
 
     discovery_cap = client.units - int(client.units * DETAILS_SHARE)
-    added = feed_errors = 0
-    pending_backfill = 0
-    for c in canais:
-        cid, cur = c["channel_id"], cursor.get(c["channel_id"], {})
-        if not cur.get("done") and c["uploads_playlist"]:
-            token, done = cur.get("token"), False
-            try:
-                while client.spent < discovery_cap:
-                    items, token = playlist_page(client,
-                                                 c["uploads_playlist"], token)
-                    added += sum(add(c, it) for it in items)
-                    if not token:
-                        done = True
-                        break
-            except QuotaExhausted:
-                pass
-            cursor[cid] = {"token": token, "done": done}
-            if not done:
-                pending_backfill += 1
-                continue  # out of discovery budget: resume here next run
-        # daily path (and channels already backfilled): free RSS
-        try:
-            added += sum(add(c, it) for it in feed_items(cid))
-        except (RuntimeError, ET.ParseError):
-            feed_errors += 1
-    cursor_path.write_text(json.dumps(cursor))
-
-    # details: videos never detailed (duration unknown), then stats for the
-    # recent window (or everything with --stats-all)
-    cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ",
-                           time.gmtime(time.time() - STATS_WINDOW_DAYS * 86400))
-    undetailed = [v for v, r in videos.items() if r["duration_s"] is None]
-    recent = [v for v, r in videos.items() if r["duration_s"] is not None
-              and (stats_all or (r["published_at"] or "") >= cutoff)]
     stats_rows: list[dict] = []
-    try:
-        for it in video_details(client, sorted(undetailed) + sorted(recent)):
-            vid, sn, st = it["id"], it.get("snippet", {}), it.get("statistics", {})
-            r = videos.get(vid)
-            if r is not None and r["duration_s"] is None:
-                dur = parse_duration(it.get("contentDetails", {})
-                                     .get("duration"))
-                r.update(duration_s=dur,
-                         is_short=dur is not None and dur <= 180,
-                         is_live="liveStreamingDetails" in it,
-                         tags=sn.get("tags"),
-                         published_at=sn.get("publishedAt") or r["published_at"],
-                         description=sn.get("description") or r["description"])
-            stats_rows.append({"video_id": vid, "fetched_at": now,
-                               "views": _int(st.get("viewCount")),
-                               "likes": _int(st.get("likeCount")),
-                               "comments": _int(st.get("commentCount"))})
-    except QuotaExhausted:
-        pass
-    still = sum(1 for r in videos.values() if r["duration_s"] is None)
+    tally = {"added": 0, "feed_errors": 0, "pending": 0, "skipped": 0}
 
-    pq.write_table(pa.Table.from_pylist(list(videos.values()),
-                                        schema=VIDEOS_SCHEMA),
-                   videos_path, compression="zstd")
-    stats_path = data_dir / "youtube_stats.parquet"
-    table = pa.Table.from_pylist(stats_rows, schema=STATS_SCHEMA)
-    if stats_path.exists():
-        table = pa.concat_tables([pq.read_table(stats_path), table])
-    pq.write_table(table, stats_path, compression="zstd")
-    print(f"youtube: +{added} videos ({len(videos)} total, {still} awaiting "
-          f"details), {len(stats_rows)} stat snapshots, {pending_backfill} "
-          f"channels mid-backfill, {feed_errors} feed errors, "
-          f"{client.spent}/{client.units} units")
+    def save() -> None:
+        """Called in a finally: whatever was fetched survives a crash."""
+        cursor_path.write_text(json.dumps(cursor))
+        pq.write_table(pa.Table.from_pylist(list(videos.values()),
+                                            schema=VIDEOS_SCHEMA),
+                       videos_path, compression="zstd")
+        stats_path = data_dir / "youtube_stats.parquet"
+        table = pa.Table.from_pylist(stats_rows, schema=STATS_SCHEMA)
+        if stats_path.exists():
+            table = pa.concat_tables([pq.read_table(stats_path), table])
+        pq.write_table(table, stats_path, compression="zstd")
+        still = sum(1 for r in videos.values() if r["duration_s"] is None)
+        print(f"youtube: +{tally['added']} videos ({len(videos)} total, "
+              f"{still} awaiting details), {len(stats_rows)} stat snapshots, "
+              f"{tally['pending']} channels mid-backfill, {tally['skipped']} "
+              f"channels skipped, {tally['feed_errors']} feed errors, "
+              f"{client.spent}/{client.units} units")
+
+    try:
+        for c in canais:
+            _discover(c, client, cursor, discovery_cap, add, tally)
+        # details: videos never detailed (duration unknown), then stats for
+        # the recent window (or everything with --stats-all)
+        cutoff = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(
+            time.time() - STATS_WINDOW_DAYS * 86400))
+        undetailed = [v for v, r in videos.items() if r["duration_s"] is None]
+        recent = [v for v, r in videos.items() if r["duration_s"] is not None
+                  and (stats_all or (r["published_at"] or "") >= cutoff)]
+        try:
+            for it in video_details(client,
+                                    sorted(undetailed) + sorted(recent)):
+                vid = it["id"]
+                sn, st = it.get("snippet", {}), it.get("statistics", {})
+                r = videos.get(vid)
+                if r is not None and r["duration_s"] is None:
+                    dur = parse_duration(it.get("contentDetails", {})
+                                         .get("duration"))
+                    r.update(duration_s=dur,
+                             is_short=dur is not None and dur <= 180,
+                             is_live="liveStreamingDetails" in it,
+                             tags=sn.get("tags"),
+                             published_at=(sn.get("publishedAt")
+                                           or r["published_at"]),
+                             description=(sn.get("description")
+                                          or r["description"]))
+                stats_rows.append({"video_id": vid, "fetched_at": now,
+                                   "views": _int(st.get("viewCount")),
+                                   "likes": _int(st.get("likeCount")),
+                                   "comments": _int(st.get("commentCount"))})
+        except QuotaExhausted:
+            pass
+    finally:
+        save()
+
+
+def _discover(c: dict, client: YouTubeClient, cursor: dict,
+              discovery_cap: int, add, tally: dict) -> None:
+    """One channel: walk its uploads backfill (resumable) or, once done,
+    read the free RSS feed. A broken channel is skipped, never fatal."""
+    cid, cur = c["channel_id"], cursor.get(c["channel_id"], {})
+    if not cur.get("done") and c["uploads_playlist"]:
+        token, done = cur.get("token"), False
+        try:
+            while client.spent < discovery_cap:
+                items, token = playlist_page(client, c["uploads_playlist"],
+                                             token)
+                tally["added"] += sum(add(c, it) for it in items)
+                if not token:
+                    done = True
+                    break
+        except QuotaExhausted:
+            pass
+        except RuntimeError as exc:
+            # playlistNotFound: no public uploads (or hidden) -> nothing to
+            # backfill; anything else: skip this channel for this run
+            if "playlistNotFound" in str(exc):
+                done, token = True, None
+            else:
+                tally["skipped"] += 1
+                print(f"youtube: {c['nome']} ({cid}): {exc}")
+                return
+        cursor[cid] = {"token": token, "done": done}
+        if not done:
+            tally["pending"] += 1
+            return  # out of discovery budget: resume here next run
+    try:
+        tally["added"] += sum(add(c, it) for it in feed_items(cid))
+    except (RuntimeError, ET.ParseError):
+        tally["feed_errors"] += 1
 
 
 # --- archive ----------------------------------------------------------------
