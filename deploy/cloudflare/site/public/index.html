@@ -53,11 +53,6 @@
   .top-in { max-width: 82rem; margin: 0 auto; padding: .7rem 16px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
   .brand { font-weight: 700; font-size: 1.05rem; color: var(--text); white-space: nowrap; }
   .brand span { color: var(--muted); font-weight: 500; }
-  nav.main { display: flex; gap: .2rem; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
-  nav.main a { white-space: nowrap; }
-  nav.main a { color: var(--text-2); padding: .35rem .7rem; border-radius: 999px; font-size: .9rem; }
-  nav.main a:hover { background: var(--surface-2); text-decoration: none; }
-  nav.main a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
   .search { position: relative; flex: 1 1 16rem; min-width: 12rem; }
   .search input { width: 100%; padding: .5rem .8rem; border-radius: 999px; border: 1px solid var(--line);
                   background: var(--surface-2); color: var(--text); font: inherit; font-size: .9rem; }
@@ -235,12 +230,30 @@
   .ctx .chipx b { color: var(--text); font-weight: 600; }
   .ctx .grow { flex: 1; }
   .ctx .tray { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  .vsel { position: relative; }
+  #viewbtn { display: flex; flex-direction: column; align-items: flex-start; gap: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 12px;
+             padding: .28rem 2rem .3rem .75rem; cursor: pointer; position: relative; min-width: 16rem; text-align: left; line-height: 1.15; }
+  #viewbtn:hover, #viewbtn[aria-expanded="true"] { border-color: var(--accent); }
+  #viewbtn small { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  #viewbtn span { font-weight: 650; font-size: .92rem; color: var(--text); max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #viewbtn i { position: absolute; right: .7rem; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--muted); }
+  .vmenu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; width: min(26rem, 92vw); background: var(--surface); border: 1px solid var(--line);
+           border-radius: var(--radius); box-shadow: 0 14px 36px rgba(0,0,0,.16); overflow: hidden; }
+  .vmenu input { width: 100%; border: 0; border-bottom: 1px solid var(--line); padding: .65rem .85rem; font: inherit; font-size: .9rem; background: var(--surface); color: var(--text); }
+  .vmenu input:focus { outline: none; }
+  #vlist { max-height: min(70vh, 32rem); overflow-y: auto; padding-bottom: .3rem; }
+  #vlist .hd { padding: .55rem .85rem .2rem; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  #vlist .hd.camara { color: var(--cam); } #vlist .hd.senado { color: var(--sen); }
+  #vlist a { display: block; padding: .38rem .85rem .38rem 1.1rem; color: var(--text); font-size: .9rem; }
+  #vlist a small { display: block; color: var(--muted); font-size: .75rem; }
+  #vlist a:hover, #vlist a.sel { background: var(--surface-2); text-decoration: none; }
+  #vlist a.on { color: var(--accent); font-weight: 600; }
+  #sbox[hidden] { display: none; }
   .gh { color: var(--text-2); display: inline-flex; padding: .3rem; border-radius: 999px; }
   .gh:hover { color: var(--text); background: var(--surface-2); }
   .ai { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: .12rem .6rem; font-size: .8rem; cursor: pointer; white-space: nowrap; }
   .ai:hover { border-color: var(--accent); color: var(--accent); }
   .toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--surface); padding: .6rem 1rem; border-radius: 10px; font-size: .88rem; max-width: min(92vw, 34rem); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
-  @media (max-width: 720px) { .toast { bottom: 5rem; } }
   .results .hd { padding: .45rem .85rem .2rem; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: var(--surface-2); }
   /* ---------- guided start ---------- */
   .start { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin: .4rem 0 1rem; }
@@ -261,38 +274,36 @@
   .subtabs a { border: 1px solid var(--line); border-radius: 999px; padding: .25rem .7rem; font-size: .85rem; color: var(--text-2); }
   .subtabs a:hover { text-decoration: none; background: var(--surface-2); }
   .subtabs a.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
-  /* ---------- phones: bottom tab bar ---------- */
+  /* ---------- phones ---------- */
   @media (max-width: 720px) {
-    nav.main { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; justify-content: space-around; gap: 0;
-               background: var(--surface); border-top: 1px solid var(--line); padding: .35rem .3rem calc(.35rem + env(safe-area-inset-bottom)); max-width: none; }
-    nav.main a { flex: 1; text-align: center; padding: .45rem .2rem; font-size: .82rem; border-radius: 10px; }
-    body { padding-bottom: 4rem; }
-    /* backdrop-filter would make .top the containing block of the fixed nav */
-    .top { backdrop-filter: none; background: var(--surface); position: static; }
+    .top { position: static; }
+    .top-in { gap: .5rem; }
+    .vsel { flex: 1 1 auto; min-width: 0; }
+    #viewbtn { width: 100%; min-width: 0; }
+    .search { flex-basis: 100%; order: 5; }
     .start { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
     .start button { padding: .55rem .6rem; }
     .start b { font-size: .84rem; margin: 0; }
     .start span { display: none; }
-    .top-in { gap: .6rem; }
-    .search { flex-basis: 100%; }
     .ramp small { font-size: .58rem; }
     .ramp div:nth-child(even) small { visibility: hidden; }
+    .toast { bottom: 1.5rem; }
   }
   @media (prefers-reduced-motion: no-preference) { .mapbox g.zoom { transition: transform .45s ease; } }
 </style>
 </head>
 <body>
 <div class="top"><div class="top-in">
-  <a class="brand" href="#/">🐕 Caramelo</a>
-  <nav class="main" id="nav" aria-label="Seções">
-    <a href="#/" data-r="">Mapa</a>
-    <a href="#/simulador" data-r="simulador">Simulador</a>
-    <a href="#/pessoas" data-r="pessoas">Pessoas</a>
-    <a href="#/projetos" data-r="projetos">Projetos</a>
-    <a href="#/dados" data-r="dados">Dados</a>
-  </nav>
-  <div class="search">
-    <input id="q" type="search" placeholder="Busque cidade, parlamentar, projeto, indicador ou tabela…" autocomplete="off" aria-label="Buscar em tudo">
+  <a class="brand" href="#/" aria-label="Caramelo, início">🐕 Caramelo</a>
+  <div class="vsel">
+    <button id="viewbtn" aria-haspopup="listbox" aria-expanded="false" aria-label="Escolher visão"><small id="viewgrp"></small><span id="viewlbl">Mapa</span><i aria-hidden="true">▾</i></button>
+    <div id="viewmenu" class="vmenu" hidden>
+      <input id="vq" type="search" placeholder="Filtrar visões (ex.: ideb, senado, tabelas)…" autocomplete="off" aria-label="Filtrar visões">
+      <div id="vlist" role="listbox"></div>
+    </div>
+  </div>
+  <div class="search" id="sbox">
+    <input id="q" type="search" placeholder="Buscar…" autocomplete="off" aria-label="Buscar">
     <div id="results" class="results" hidden></div>
   </div>
   <a class="gh" href="https://github.com/gabriel-laet/caramelo" target="_blank" rel="noopener" aria-label="Código no GitHub" title="Código aberto no GitHub"><svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
@@ -543,11 +554,11 @@ async function viewHome(params = new URLSearchParams()) {
   const hideStart = startHidden();
   view.innerHTML = `
     <div class="start-hd"><h1>O dinheiro público, município por município</h1>${hideStart ? '<button id="startshow">como começar?</button>' : '<button id="starthide">esconder dicas</button>'}</div>
-    ${hideStart ? "" : `<p class="lede">Emendas, finanças municipais, serviços básicos, parlamentares e projetos de lei, de fontes oficiais. Comece por um destes caminhos, ou use a busca no topo para qualquer coisa:</p>
+    ${hideStart ? "" : `<p class="lede">Emendas, finanças municipais, serviços básicos, parlamentares e projetos de lei, de fontes oficiais. Tudo se escolhe no seletor de visão, no topo; a busca ao lado procura o que faz sentido naquela visão.</p>
     <div class="start">
       <button data-go="cidade"><b>Veja sua cidade</b><span>Quanto recebeu, de quem, e como ela se compara.</span></button>
       <button data-go="pessoa"><b>Veja um parlamentar</b><span>Deputados e senadores: emendas, gastos, votos, projetos.</span></button>
-      <button data-go="tema"><b>Explore um tema</b><span>Dinheiro, finanças, água, saúde, educação: escolha a camada do mapa.</span></button>
+      <button data-go="tema"><b>Escolha outra visão</b><span>Outros indicadores, simulador, parlamentares, projetos, dados.</span></button>
     </div>`}
     <div class="atlas">
       <div class="mapbox">
@@ -555,8 +566,6 @@ async function viewHome(params = new URLSearchParams()) {
         <div class="legend" id="legend"></div>
       </div>
       <div class="side">
-        <div class="card"><h3>Camada</h3><div class="layers" id="layers">${groups.map(g => `<div class="grp">${g}</div>` +
-          LAYERS.filter(l => l.grp === g && (l.label || PAINEL.metricas[l.key])).map(l => `<button data-k="${l.key}">${esc(layerLabel(l))}</button>`).join("")).join("")}</div></div>
         <div class="card" id="layerinfo"></div>
       </div>
     </div>
@@ -564,8 +573,8 @@ async function viewHome(params = new URLSearchParams()) {
   const qbox = document.getElementById("q");
   view.querySelectorAll(".start button").forEach(b => b.onclick = () => {
     if (b.dataset.go === "cidade") { qbox.placeholder = "Digite o nome da cidade…"; qbox.focus(); }
-    else if (b.dataset.go === "pessoa") location.hash = "#/pessoas";
-    else { const l = document.getElementById("layers"); l.scrollIntoView({behavior: "smooth", block: "center"}); l.closest(".card").animate([{outline: "2px solid var(--accent)"}, {outline: "2px solid transparent"}], {duration: 1400}); }
+    else if (b.dataset.go === "pessoa") { location.hash = "#/pessoas/camara"; setTimeout(() => document.getElementById("q").focus(), 300); }
+    else setTimeout(() => window.openViews(), 0);
   });
   const toggleStart = v => { try { localStorage.setItem(START_KEY, v); } catch {} viewHome(new URLSearchParams({camada: home.layer, uf: home.uf})); };
   document.getElementById("starthide")?.addEventListener("click", () => toggleStart("1"));
@@ -583,9 +592,9 @@ async function viewHome(params = new URLSearchParams()) {
     const l = LAYERS.find(x => x.key === home.layer);
     setCtx([["Mapa"]], {uf: {value: home.uf, onChange: v => { home.uf = v; home.top = 10; map.zoomUF(v); sync(); paint(); }},
       ai: () => `Estou no mapa de municípios, indicador "${layerLabel(l)}"${home.uf ? `, estado ${home.uf}` : ", Brasil inteiro"}. Todos os indicadores do mapa, um município por linha: https://api.caramelo.dev.br/painel (coluna ${l.key.startsWith("sim:") ? "—" : l.key}).`,
-      chips: `<span class="sep">·</span><span class="chipx">Indicador: <b>${esc(layerLabel(l))}</b></span>`});
+      chips: ""});
   };
-  document.getElementById("layers").onclick = e => { const k = e.target.dataset.k; if (k) { home.layer = k; home.top = 10; sync(); paint(); } };
+
   let simCache = {};
   function layerTip(r) {
     if (home.layer.startsWith("sim:")) {
@@ -597,7 +606,6 @@ async function viewHome(params = new URLSearchParams()) {
   }
   async function paint() {
     ctx();
-    document.querySelectorAll("#layers button").forEach(b => b.classList.toggle("on", b.dataset.k === home.layer));
     const inUF = r => !home.uf || r.uf === home.uf;
     const info = document.getElementById("layerinfo"), legend = document.getElementById("legend");
     if (home.layer.startsWith("sim:")) {
@@ -961,9 +969,8 @@ async function viewProjetos(params) {
   const TIPOS = casa === "senado" ? ["PL", "PLP", "PEC", "PDL", "PRS"] : ["PL", "PLP", "PEC", "PDL", "MPV", "PLV", "PRC", "PLN"];
   const keep = extra => "#/projetos?" + new URLSearchParams(Object.fromEntries(Object.entries({casa: casa === "senado" ? "senado" : "", q, tipo, tema, deputado: dep, senador: sen, ...extra}).filter(([, v]) => v)));
   setCtx([["Projetos", "#/projetos"], [casa === "senado" ? "Senado Federal" : "Câmara dos Deputados"]]);
-  view.innerHTML = `<h1>Projetos</h1>
+  view.innerHTML = `<h1>Projetos ${casa === "senado" ? "do Senado" : "da Câmara"}${casaPill(casa)}</h1>
     <p class="lede">${casa === "senado" ? "Projetos de senadores da legislatura atual (PL, PLP, PEC, PDL, PRS), com situação e link para a tramitação no Senado." : "Proposições da Câmara desde 2023 (PL, PLP, PEC, PDL, MPV…), com autores, temas, situação e votações."}</p>
-    <nav class="stabs"><a class="${casa === "camara" ? "on camara" : ""}" href="#/projetos">Câmara dos Deputados</a><a class="${casa === "senado" ? "on senado" : ""}" href="#/projetos?casa=senado">Senado Federal</a></nav>
     <form class="filters" id="lf">
       <input name="q" placeholder="Palavra na ementa (ex.: show, saneamento)…" value="${esc(q)}" aria-label="Palavra na ementa">
       <select name="tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS.map(t => `<option ${t === tipo ? "selected" : ""}>${t}</option>`).join("")}</select>
@@ -1002,7 +1009,6 @@ async function viewSimulador(pid) {
   const state = {variante: {}, limiar: {}, uf: "", off: new Set()};
   view.innerHTML = `
     ${PAINEL.faltando.some(t => t !== "gazetas") ? `<p class="err">Dados ainda não publicados: ${esc(PAINEL.faltando.filter(t => t !== "gazetas").join(", "))}. Enquanto isso, os municípios aparecem como “sem dado suficiente”.</p>` : ""}
-    <div class="tabs2">${props.map(p => `<a class="chip" style="${p.id === pid ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/simulador/${p.id}">${esc(p.titulo)}</a>`).join("")}</div>
     <h1>${esc(prop.titulo)}</h1>
     <p class="lede">${esc(prop.ementa)}</p>
     <p class="note" style="margin-top:.4rem">${esc(prop.autoria)} · apresentado em ${esc(prop.apresentacao)} · <a href="${esc(prop.url)}" target="_blank" rel="noopener">texto oficial</a>${prop.proposicao_id ? ` · <a href="#/b/${prop.proposicao_id}">tramitação</a>` : ""}</p>
@@ -1179,10 +1185,9 @@ async function viewPessoas(casa, sub, params) {
   const P = PESSOAS[casa];
   sub = P.subs[sub] ? sub : Object.keys(P.subs)[0];
   setCtx([["Pessoas", "#/pessoas"], [P.label, `#/pessoas/${casa}`], [P.subs[sub][0]]]);
-  view.innerHTML = `<h1>Pessoas</h1>
-    <p class="lede">Deputados e senadores em listas separadas: cada emenda conta para a casa em que o autor estava ao votar o Orçamento. Para achar alguém, use a busca no topo; no perfil, “+ Comparar” monta uma comparação.</p>
-    <nav class="stabs">${Object.entries(PESSOAS).map(([k, v]) => `<a class="${k === casa ? "on " + k : ""}" href="#/pessoas/${k}">${esc(v.label)}</a>`).join("")}<a href="#/comparar">Comparar</a></nav>
-    ${Object.keys(P.subs).length > 1 ? `<div class="subtabs">${Object.entries(P.subs).map(([k, v]) => `<a class="${k === sub ? "on" : ""}" href="#/pessoas/${casa}/${k}">${esc(v[0])}</a>`).join("")}</div>` : ""}
+  view.innerHTML = `<h1>${esc(P.label)}${casa !== "coletivas" ? casaPill(casa) : ""}</h1>
+    <p class="lede">${casa === "coletivas" ? "Emendas que não têm um único autor." : `Cada emenda conta para a casa em que o autor estava ao votar o Orçamento. Busque ${casa === "senado" ? "um senador" : "um deputado"} no topo; no perfil, “+ Comparar” monta uma comparação.`}</p>
+    <h2 style="margin-top:1rem">${esc(P.subs[sub][0])}</h2>
     <div class="card" id="rk"><div class="loading">carregando…</div></div>`;
   try { document.getElementById("rk").innerHTML = await P.subs[sub][1](params); }
   catch (e) { document.getElementById("rk").innerHTML = `<p class="err">erro (${esc(e.message)}). Esta tabela pode ainda não ter sido publicada.</p>`; }
@@ -1190,9 +1195,9 @@ async function viewPessoas(casa, sub, params) {
 async function viewComparar() {
   const t = tray();
   setCtx([["Pessoas", "#/pessoas"], ["Comparar"]]);
-  const head = `<h1>Comparar</h1><nav class="stabs">${Object.entries(PESSOAS).map(([k, v]) => `<a href="#/pessoas/${k}">${esc(v.label)}</a>`).join("")}<a class="on" href="#/comparar">Comparar</a></nav>`;
+  const head = `<h1>Comparar dois parlamentares</h1>`;
   if (t.length < 2) {
-    view.innerHTML = head + `<div class="card"><p>Abra o perfil de dois parlamentares (deputados, senadores ou um de cada) pela busca no topo ou pelas listas, e clique em <b>+ Comparar</b> em cada um.</p>${t.length ? `<p class="note" style="margin-top:.5rem">Já escolhido: <b>${esc(t[0].nome)}</b>. Falta mais um.</p>` : ""}</div>`;
+    view.innerHTML = head + `<div class="card"><p>Busque um deputado ou senador no topo, abra o perfil e clique em <b>+ Comparar</b>. Repita com a segunda pessoa (pode ser um de cada casa).</p>${t.length ? `<p class="note" style="margin-top:.5rem">Já escolhido: <b>${esc(t[0].nome)}</b>. Falta mais um.</p>` : ""}</div>`;
     return;
   }
   view.innerHTML = head + `<div class="card" id="cmp-out"><div class="loading">comparando…</div></div>`;
@@ -1223,14 +1228,14 @@ let TABELAS = null;
 async function tabelas() { return TABELAS || (TABELAS = await get("/tabelas")); }
 const DADOS_TABS = [["", "Tabelas"], ["panoramas", "Panoramas"], ["dev", "IA e desenvolvedores"]];
 const PANORAMAS = {categorias: RANKS.categorias, recebedores: RANKS.favorecidos, detector: RANKS.detector};
-function dadosHead(tab) {
-  return `<h1>Dados</h1><nav class="stabs">${DADOS_TABS.map(([k, l]) => `<a class="${k === tab ? "on" : ""}" href="#/dados${k ? "/" + k : ""}">${l}</a>`).join("")}</nav>`;
+function dadosHead(tab, sub) {
+  return `<h1>${tab === "panoramas" ? esc(PANORAMAS[sub][0]) : tab === "dev" ? "IA e desenvolvedores" : "Dados abertos"}</h1>`;
 }
 async function viewDados(tab, sub, params) {
   if (tab === "panoramas") {
     sub = PANORAMAS[sub] ? sub : "categorias";
     setCtx([["Dados", "#/dados"], ["Panoramas", "#/dados/panoramas"], [PANORAMAS[sub][0]]]);
-    view.innerHTML = dadosHead("panoramas") + `<div class="subtabs">${Object.entries(PANORAMAS).map(([k, v]) => `<a class="${k === sub ? "on" : ""}" href="#/dados/panoramas/${k}">${esc(v[0])}</a>`).join("")}</div><div class="card" id="rk"><div class="loading">carregando…</div></div>`;
+    view.innerHTML = dadosHead("panoramas", sub) + `<div class="card" id="rk" style="margin-top:1rem"><div class="loading">carregando…</div></div>`;
     try { document.getElementById("rk").innerHTML = await PANORAMAS[sub][1](params); }
     catch (e) { document.getElementById("rk").innerHTML = `<p class="err">erro (${esc(e.message)}). Esta tabela pode ainda não ter sido publicada.</p>`; }
     return;
@@ -1298,65 +1303,130 @@ LIMIT 10;</pre><p class="note" style="margin-top:.6rem">Funciona no <a href="htt
   } catch (e) { fail(e, "a tabela"); }
 }
 
-// ================================================================ SEARCH
-// The one search box: places, people, bills (both houses), map indicators,
-// simulations and tables, grouped in one list. Every other picker is gone.
+// ================================================================ VIEWS
+// One selector picks what you are looking at (map indicator, simulation,
+// people list, bills, data); the search box next to it searches whatever
+// that view is about, and hides when there is nothing to search.
+function buildViews() {
+  const V = [];
+  for (const l of LAYERS.filter(l => !l.key.startsWith("sim:")))
+    V.push({id: "mapa:" + l.key, grp: "Mapa · " + l.grp, label: layerLabel(l), kw: l.kw, href: `#/?camada=${l.key}${home.uf ? "&uf=" + home.uf : ""}`, scope: "municipio"});
+  for (const l of LAYERS.filter(l => l.key.startsWith("sim:")))
+    V.push({id: "sim:" + l.key.slice(4), grp: "Simulador de projetos", label: l.label, kw: l.kw, href: "#/simulador/" + l.key.slice(4), scope: "municipio"});
+  for (const [casa, P] of Object.entries(PESSOAS))
+    for (const [sub, [lbl]] of Object.entries(P.subs))
+      V.push({id: `pessoas:${casa}:${sub}`, grp: P.label, cls: casa, label: casa === "coletivas" ? lbl : lbl + (casa === "camara" ? " · deputados" : " · senadores"), kw: "pessoas parlamentares ranking " + P.label, href: `#/pessoas/${casa}/${sub}`, scope: casa === "coletivas" ? null : "pessoa"});
+  V.push({id: "comparar", grp: "Pessoas", label: "Comparar dois parlamentares", kw: "comparar deputado senador", href: "#/comparar", scope: "pessoa"});
+  V.push({id: "projetos:camara", grp: "Projetos de lei", cls: "camara", label: "Projetos da Câmara", kw: "leis proposicoes pl pec", href: "#/projetos", scope: "projeto"});
+  V.push({id: "projetos:senado", grp: "Projetos de lei", cls: "senado", label: "Projetos do Senado", kw: "leis proposicoes pl pec", href: "#/projetos?casa=senado", scope: "projeto"});
+  V.push({id: "dados:tabelas", grp: "Dados abertos", label: "Todas as tabelas", kw: "parquet tabelas download", href: "#/dados", scope: "tabela"});
+  for (const [k, [lbl]] of Object.entries(PANORAMAS))
+    V.push({id: "dados:pan:" + k, grp: "Dados abertos", label: lbl, kw: "panorama emendas dinheiro", href: "#/dados/panoramas/" + k, scope: null});
+  V.push({id: "dados:dev", grp: "Dados abertos", label: "IA e desenvolvedores", kw: "api prompt llm chatgpt claude mcp", href: "#/dados/dev", scope: null});
+  return V;
+}
+let CUR_VIEW = "mapa:pix_per_capita";
+const SCOPES = {
+  municipio: "Buscar município (ex.: Birigui)…",
+  pessoa: "Buscar deputado ou senador…",
+  projeto: "Buscar projeto pela ementa (ex.: show, saneamento)…",
+  tabela: "Buscar tabela ou coluna (ex.: cnpj, ideb)…",
+};
+let CUR_SCOPE = "municipio";
+function setView(id, scope) {
+  CUR_VIEW = id;
+  const v = buildViews().find(x => x.id === id);
+  document.getElementById("viewlbl").textContent = v ? v.label : "Mapa";
+  document.getElementById("viewgrp").textContent = v ? v.grp : "";
+  CUR_SCOPE = scope === undefined ? v?.scope ?? null : scope;
+  const sb = document.getElementById("sbox"), q = document.getElementById("q");
+  sb.hidden = !CUR_SCOPE;
+  if (CUR_SCOPE) q.placeholder = SCOPES[CUR_SCOPE];
+  document.getElementById("results").hidden = true;
+}
+(function selector() {
+  const btn = document.getElementById("viewbtn"), menu = document.getElementById("viewmenu"),
+        vq = document.getElementById("vq"), list = document.getElementById("vlist");
+  let sel = -1;
+  function render() {
+    const n = norm(vq.value.trim());
+    const vs = buildViews().filter(v => !n || norm(`${v.label} ${v.grp} ${v.kw || ""}`).includes(n));
+    let html = "", last = "";
+    for (const v of vs) {
+      if (v.grp !== last) { html += `<div class="hd ${v.cls || ""}">${esc(v.grp)}</div>`; last = v.grp; }
+      html += `<a href="${v.href}" class="${v.id === CUR_VIEW ? "on" : ""}" role="option">${esc(v.label)}</a>`;
+    }
+    list.innerHTML = html || `<div class="note" style="padding:.7rem .85rem">nenhuma visão com “${esc(vq.value)}”</div>`;
+    sel = -1;
+  }
+  const open = () => { render(); menu.hidden = false; btn.setAttribute("aria-expanded", "true"); vq.value = ""; render(); vq.focus(); list.querySelector("a.on")?.scrollIntoView({block: "center"}); };
+  const close = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  window.openViews = open;
+  btn.onclick = () => menu.hidden ? open() : close();
+  vq.oninput = render;
+  vq.onkeydown = e => {
+    const links = [...list.querySelectorAll("a")];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!links.length) return; sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + links.length) % links.length; links.forEach((a, i) => a.classList.toggle("sel", i === sel)); links[sel].scrollIntoView({block: "nearest"}); }
+    if (e.key === "Enter") { e.preventDefault(); (links[sel] || links[0])?.click(); }
+    if (e.key === "Escape") { close(); btn.focus(); }
+  };
+  list.addEventListener("click", e => { if (e.target.closest("a")) close(); });
+  document.addEventListener("click", e => { if (!menu.hidden && !e.target.closest(".vsel")) close(); });
+  document.addEventListener("keydown", e => {
+    if (/input|select|textarea/i.test(document.activeElement.tagName)) return;
+    if (e.key === "v") { e.preventDefault(); open(); }
+    if (e.key === "/" && !document.getElementById("sbox").hidden) { e.preventDefault(); document.getElementById("q").focus(); }
+  });
+})();
+
+// ================================================================ SEARCH (scoped to the view)
 let PROPOSTAS = null;
 (function search() {
   const q = document.getElementById("q"), box = document.getElementById("results");
   let t, sel = -1, seq = 0;
-  const group = (title, items) => items.length ? `<div class="hd">${title}</div>` + items.join("") : "";
   const item = (href, label, kind) => `<a href="${href}"><span>${label}</span><span class="k">${kind}</span></a>`;
-  function local(term) {
-    const n = norm(term);
-    const layers = LAYERS.filter(l => norm(`${layerLabel(l)} ${l.kw || ""} ${l.grp}`).includes(n)).slice(0, 5);
-    return {
-      ind: layers.filter(l => !l.key.startsWith("sim:")).map(l => item(`#/?camada=${l.key}${home.uf ? "&uf=" + home.uf : ""}`, esc(layerLabel(l)), "indicador do mapa")),
-      sim: (PROPOSTAS || []).filter(p => norm(`${p.titulo} ${p.ementa || ""} simulacao simulador`).includes(n)).slice(0, 3).map(p => item(`#/simulador/${p.id}`, esc(p.titulo), "simulação")),
-      tab: (TABELAS || []).filter(x => norm(`${x.tabela} ${x.descricao || ""}`).includes(n)).slice(0, 4).map(x => item(`#/t/${x.tabela}`, `<code>${esc(x.tabela)}</code>`, "tabela")),
-    };
-  }
+  const show = html => { box.innerHTML = html; box.hidden = false; sel = -1; };
   async function run(term) {
-    const my = ++seq;
-    if (!PROPOSTAS) get("/propostas").then(d => PROPOSTAS = d).catch(() => {});
-    if (!TABELAS) tabelas().catch(() => {});
-    const L = local(term);
-    const render = (d, bc, bs) => {
-      const pessoas = (d?.politicos || []).slice(0, 6).map(p => {
-        const ex = p.ultima_legislatura && p.ultima_legislatura < LEG_ATUAL ? "ex-" : "";
-        return item(politicoHref(p), esc(titleCase(p.nome)) + casaPill(p.casa), `${ex}${p.casa === "senado" ? "senador(a)" : "deputado(a)"} · ${esc([p.partido, p.uf].filter(Boolean).join(" "))}`);
-      });
-      const cidades = (d?.municipios || []).slice(0, 5).map(m => item(`#/m/${m.codigo_ibge}`, esc(m.nome), `município · ${esc(m.uf)}`));
-      const projetos = [...(bc || []).map(b => item(`#/b/${b.id}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 60))}`, "Câmara")),
-                        ...(bs || []).map(b => item(`#/projetos?casa=senado&q=${encodeURIComponent(term)}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 60))}`, "Senado"))];
-      if (projetos.length) projetos.push(item(`#/projetos?q=${encodeURIComponent(term)}`, `Todos os projetos com “${esc(term)}”`, "→"));
-      const html = group("Municípios", cidades) + group("Pessoas", pessoas) + group("Indicadores do mapa", L.ind) + group("Simulações", L.sim) + group("Projetos", projetos) + group("Tabelas", L.tab);
-      box.innerHTML = html || (d ? `<div class="note" style="padding:.6rem .85rem">nada encontrado para “${esc(term)}”</div>` : `<div class="note" style="padding:.6rem .85rem">buscando…</div>`);
-      box.hidden = false; sel = -1;
-    };
-    render(null);  // instant local matches while the API answers
+    const my = ++seq, scope = CUR_SCOPE;
+    if (scope === "tabela") {
+      const d = await tabelas().catch(() => []), n = norm(term);
+      const hits = d.filter(x => norm(`${x.tabela} ${x.descricao || ""} ${x.colunas.join(" ")}`).includes(n)).slice(0, 10);
+      return show(hits.map(x => item(`#/t/${x.tabela}`, `<code>${esc(x.tabela)}</code>`, esc(trim(x.descricao || x.grupo, 46)))).join("") || `<div class="note" style="padding:.6rem .85rem">nenhuma tabela com “${esc(term)}”</div>`);
+    }
+    show(`<div class="note" style="padding:.6rem .85rem">buscando…</div>`);
     try {
-      const [d, bc, bs] = await Promise.all([get("/busca?q=" + encodeURIComponent(term)),
-        get("/proposicoes?limit=3&q=" + encodeURIComponent(term)).catch(() => []),
-        get("/senado/proposicoes?limit=2&q=" + encodeURIComponent(term)).catch(() => [])]);
-      if (my === seq) render(d, bc, bs);
-    } catch { if (my === seq) render({politicos: [], municipios: []}); }
+      let html = "";
+      if (scope === "projeto") {
+        const [bc, bs] = await Promise.all([get("/proposicoes?limit=5&q=" + encodeURIComponent(term)).catch(() => []), get("/senado/proposicoes?limit=5&q=" + encodeURIComponent(term)).catch(() => [])]);
+        html = bc.map(b => item(`#/b/${b.id}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 64))}`, casaPill("camara"))).join("")
+             + bs.map(b => item(`#/projetos?casa=senado&q=${encodeURIComponent(term)}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 64))}`, casaPill("senado"))).join("");
+        if (html) html += item(`#/projetos?${CUR_VIEW === "projetos:senado" ? "casa=senado&" : ""}q=${encodeURIComponent(term)}`, `Ver a lista completa com “${esc(term)}”`, "↵");
+      } else {
+        const d = await get("/busca?q=" + encodeURIComponent(term));
+        if (scope === "pessoa") html = (d.politicos || []).slice(0, 10).map(p => {
+          const ex = p.ultima_legislatura && p.ultima_legislatura < LEG_ATUAL ? "ex-" : "";
+          return item(politicoHref(p), esc(titleCase(p.nome)) + casaPill(p.casa), `${ex}${p.casa === "senado" ? "senador(a)" : "deputado(a)"} · ${esc([p.partido, p.uf].filter(Boolean).join(" "))}`);
+        }).join("");
+        else html = (d.municipios || []).slice(0, 10).map(m => item(`#/m/${m.codigo_ibge}`, esc(m.nome), `${esc(m.uf)} · ${nf(m.populacao)} hab.`)).join("");
+      }
+      if (my === seq) show(html || `<div class="note" style="padding:.6rem .85rem">nada encontrado para “${esc(term)}”</div>`);
+    } catch { if (my === seq) box.hidden = true; }
   }
-  q.addEventListener("focus", () => { if (!TABELAS) tabelas().catch(() => {}); if (!PROPOSTAS) get("/propostas").then(d => PROPOSTAS = d).catch(() => {}); });
   q.addEventListener("input", () => {
     clearTimeout(t); const term = q.value.trim();
     if (term.length < 2) { box.hidden = true; return; }
     t = setTimeout(() => run(term), 200);
   });
   q.addEventListener("keydown", e => {
-    const links = [...box.querySelectorAll("a")]; if (box.hidden || !links.length) return;
+    const links = [...box.querySelectorAll("a")];
+    if (e.key === "Enter" && CUR_SCOPE === "projeto" && sel < 0) { e.preventDefault(); location.hash = `#/projetos?${CUR_VIEW === "projetos:senado" ? "casa=senado&" : ""}q=${encodeURIComponent(q.value.trim())}`; box.hidden = true; return; }
+    if (box.hidden || !links.length) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + links.length) % links.length; links.forEach((a, i) => a.classList.toggle("sel", i === sel)); links[sel].scrollIntoView({block: "nearest"}); }
     if (e.key === "Enter") { e.preventDefault(); (links[sel] || links[0]).click(); }
     if (e.key === "Escape") { box.hidden = true; q.blur(); }
   });
-  box.addEventListener("click", e => { if (e.target.closest("a")) { box.hidden = true; q.value = ""; q.placeholder = "Busque cidade, parlamentar, projeto, indicador ou tabela…"; } });
+  box.addEventListener("click", e => { if (e.target.closest("a")) { box.hidden = true; q.value = ""; } });
   document.addEventListener("click", e => { if (!q.parentElement.contains(e.target)) box.hidden = true; });
-  document.addEventListener("keydown", e => { if (e.key === "/" && !/input|select|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); } });
 })();
 
 // ================================================================ ROUTER
@@ -1376,8 +1446,19 @@ function route() {
   if (top === "tabelas") return location.replace("#/dados");
   if (top === "compare") return location.replace("#/comparar");
   if (top === "rankings") return location.replace(LEGACY_RANKS[parts[1]] || "#/pessoas");
-  const section = {m: "", p: "pessoas", s: "pessoas", comparar: "pessoas", b: "projetos", t: "dados"}[top] ?? top;
-  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === section));
+  // which view the selector shows, and what the search box searches here
+  const mapView = "mapa:" + (LAYERS.some(l => l.key === params.get("camada") && !l.key.startsWith("sim:")) ? params.get("camada") : (home.layer.startsWith("sim:") ? "pix_per_capita" : home.layer));
+  const pc = PESSOAS[parts[1]] ? parts[1] : "camara", ps = PESSOAS[pc].subs[parts[2]] ? parts[2] : Object.keys(PESSOAS[pc].subs)[0];
+  const [vid, scope] = {
+    "": [mapView], m: [mapView, "municipio"],
+    simulador: ["sim:" + (parts[1] || "pl-5870-2026")],
+    pessoas: [`pessoas:${pc}:${ps}`], comparar: ["comparar"],
+    p: ["pessoas:camara:emendas", "pessoa"], s: ["pessoas:senado:emendas", "pessoa"],
+    projetos: [params.get("casa") === "senado" ? "projetos:senado" : "projetos:camara"], b: ["projetos:camara", "projeto"],
+    dados: [parts[1] === "panoramas" ? "dados:pan:" + (PANORAMAS[parts[2]] ? parts[2] : "categorias") : parts[1] === "dev" ? "dados:dev" : "dados:tabelas"],
+    t: ["dados:tabelas", "tabela"],
+  }[top] || [mapView];
+  setView(vid, scope);
   window.scrollTo(0, 0);
   ctxEl.innerHTML = "";
   if (top === "m") return viewMunicipio(parts[1]);
