@@ -157,16 +157,22 @@ def _sinisa(raw_dir: Path) -> list[dict]:
 def _aps(cod6_to_7: dict[str, str]) -> list[dict]:
     now = time.gmtime()
     y, m = now.tm_year, now.tm_mon
+    errors: list[str] = []
     for _ in range(8):  # newest published month, usually ~3 months back
         comp = f"{y}{m:02d}"
-        data = get(APS_URL, params={"unidadeGeografica": "MUNICIPIO",
-                                    "nuCompInicio": comp, "nuCompFim": comp},
-                   timeout=180.0).json()
+        try:  # one bad month (the server 500s on some) must not end the search
+            data = get(APS_URL, params={"unidadeGeografica": "MUNICIPIO",
+                                        "nuCompInicio": comp, "nuCompFim": comp},
+                       timeout=180.0).json()
+        except Exception as exc:
+            errors.append(f"{comp}: {exc!r}"[:200])
+            data = None
         if data:
             break
         y, m = (y, m - 1) if m > 1 else (y - 1, 12)
     else:
-        print("indicadores: APS — no published month found")
+        print("indicadores: APS — no published month found"
+              + (f"; errors: {'; '.join(errors)}" if errors else ""))
         return []
     rows = []
     for r in data:
