@@ -268,7 +268,7 @@ def main(argv: list[str] | None = None) -> None:
         from caramelo import transcribe
         transcribe.run(arc.root(args.archive_dir), whisper=args.whisper,
                        model=args.model, limit=args.limit,
-                       kinds=tuple(args.kinds))
+                       kinds=tuple(args.kinds), data_dir=args.data_dir)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)

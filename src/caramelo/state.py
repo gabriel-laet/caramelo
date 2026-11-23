@@ -20,7 +20,7 @@ SEED_TABLES = ("posts", "x_users", "media", "senadores_x", "gazetas",
                "instagram_contas", "instagram_posts",
                # built on the local network (NAS archive) and published from
                # there; the cloud run must carry them forward untouched
-               "manchetes", "gdelt_timeline")
+               "manchetes", "gdelt_timeline", "transcricoes")
 STATE_FILES = ("x_cursor.json", "siconfi_cursor.json",
                "youtube_backfill.json")
 

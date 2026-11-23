@@ -166,8 +166,17 @@ def whisper_pass(archive_root: Path, *, model: str = "large-v3",
 
 
 def run(archive_root: Path, *, whisper: bool, model: str, limit: int,
-        kinds: tuple[str, ...]) -> None:
+        kinds: tuple[str, ...], data_dir: Path | None = None) -> None:
     captions_pass(archive_root)
     if whisper:
         whisper_pass(archive_root, model=model, kinds=kinds, limit=limit)
-    arc.compile_transcripts(archive_root)
+    out = arc.compile_transcripts(archive_root)
+    if data_dir is not None:
+        # transcript text is public (published to the lake); raw audio,
+        # captions files and info.json stay in the archive
+        import shutil
+        data_dir.mkdir(parents=True, exist_ok=True)
+        dest = data_dir / "transcricoes.parquet"
+        shutil.copyfile(out, dest.with_suffix(".parquet.tmp"))
+        os.replace(dest.with_suffix(".parquet.tmp"), dest)
+        print(f"transcribe: published copy -> {dest}")
