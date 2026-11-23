@@ -269,6 +269,11 @@ def main(argv: list[str] | None = None) -> None:
             print(f"run-all: secondary sources failed (kept previous rows): "
                   f"{', '.join(failed)}")
         authors.resolve(args.data_dir)
+        try:  # Pix destination per município (TransfereGov beneficiaries)
+            from caramelo.resolution import pix
+            pix.resolve(args.data_dir)
+        except Exception as exc:
+            print(f"run-all: pix resolution failed: {exc!r}")
         from caramelo.enrich import categorias
         # Enrichment is derived data: a failure here must not block publishing
         # the freshly harvested tables (the previous enrichment is carried

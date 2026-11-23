@@ -151,8 +151,12 @@ def _limiares(raw: str | None) -> dict[str, float]:
          summary="Every município in one columnar payload (indicators, "
                  "fiscal ratios, emendas per capita) for maps")
 def painel(response: Response) -> dict:
-    response.headers["Cache-Control"] = "public, max-age=3600"
-    return domain.painel(lake())
+    out = domain.painel(lake())
+    # a partial panel (tables still unpublished) must not stick in caches
+    degraded = out["faltando"] and out["faltando"] != ["gazetas"]
+    response.headers["Cache-Control"] = (
+        f"public, max-age={600 if degraded else 3600}")
+    return out
 
 
 @app.get("/propostas", operation_id="propostas",

@@ -277,7 +277,7 @@ async function painel() {
   const d = await get("/painel");
   const idx = Object.fromEntries(d.colunas.map((c, i) => [c, i]));
   const rows = d.linhas.map(l => Object.fromEntries(d.colunas.map(c => [c, l[idx[c]]])));
-  PAINEL = {rows, byCod: Object.fromEntries(rows.map(r => [r.cod_ibge, r])), metricas: d.metricas, notas: d.notas, faltando: d.faltando || []};
+  PAINEL = {rows, byCod: Object.fromEntries(rows.map(r => [r.cod_ibge, r])), metricas: d.metricas, notas: d.notas, faltando: d.faltando || [], pixAtrib: d.pix_atribuicao || "portal"};
   return PAINEL;
 }
 async function geo() {
@@ -459,7 +459,9 @@ async function viewHome() {
     legend.innerHTML = `<span>${esc(m.label)}</span><div class="ramp">${fullRamp.map((c, i) =>
       `<div><i style="background:${c}"></i><small>${labels[i] ?? ""}</small></div>`).join("")}</div>
       <span><i class="sw nd"></i>sem dado</span>
-      ${home.layer === "pix_per_capita" ? `<span class="note" style="flex-basis:100%">Atenção: ~93% do valor das emendas Pix desde 2023 aparece como “MÚLTIPLO” no Portal da Transparência, sem município. Este mapa mostra só a parte atribuída a um município.</span>` : ""}`;
+      ${home.layer === "pix_per_capita" ? `<span class="note" style="flex-basis:100%">${PAINEL.pixAtrib === "transferegov"
+        ? "Destino das emendas Pix: beneficiário declarado nos planos de ação do TransfereGov (o Portal da Transparência registra a maior parte como “MÚLTIPLO”). Transferências a governos estaduais não aparecem no mapa."
+        : "Atenção: ~93% do valor das emendas Pix desde 2023 aparece como “MÚLTIPLO” no Portal da Transparência, sem município. Este mapa mostra só a parte atribuída a um município."}</span>` : ""}`;
     const scope = PAINEL.rows.filter(inUF);
     const withVal = scope.filter(r => r[home.layer] != null);
     const sv = withVal.map(r => r[home.layer]).sort((a, b) => a - b);
@@ -684,7 +686,7 @@ async function viewPolitico(id) {
     </div>
     <div class="grid g2" style="margin-top:1rem">
       <div class="card"><h3>Para onde foram as emendas (2023+)</h3>${(p.destinos || []).length ? `<div class="bars">${barRows(p.destinos, r => r.codigo_ibge ? `<a href="#/m/${r.codigo_ibge}">${esc(titleCase(r.nome))}</a>` : `<span class="note">${esc(titleCase(r.nome || "não informado"))}</span>`, r => r.empenhado, brl)}</div>
-        ${p.destinos.some(r => !r.codigo_ibge) ? '<p class="note" style="margin-top:.5rem">“Múltiplo” e estados inteiros: a origem (Portal da Transparência) não detalha o município — comum em emendas Pix.</p>' : ""}` : '<p class="note">Nenhuma emenda desde 2023 (ou nome do autor não resolvido).</p>'}</div>
+        ${p.destinos.some(r => !r.codigo_ibge) ? '<p class="note" style="margin-top:.5rem">Sem link: transferências a governos estaduais, ou emendas que a fonte registra como “Múltiplo” ou estado inteiro, sem município.</p>' : ""}` : '<p class="note">Nenhuma emenda desde 2023 (ou nome do autor não resolvido).</p>'}</div>
       <div class="card"><h3>Como vota</h3>${g && govSorted.length ? `<div class="dist" style="grid-template-columns:1fr">
           <div class="lab">Entre os ${nf(govSorted.length)} deputados com ≥200 votos<small>acima de ${Math.round(100 * pctBelow(govSorted, g.governismo))}% da Câmara${party.length > 2 ? ` · ${Math.round(100 * pctBelow(party, g.governismo))}% do ${esc(p.partido)}` : ""}</small></div>
           ${distSvg(govSorted.map(x => x * 100), g.governismo * 100)}</div>

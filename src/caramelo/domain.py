@@ -48,6 +48,46 @@ class Lake:
         self._has[name] = (time.monotonic(), ok)
         return ok
 
+    def emendas(self) -> str:
+        """`emendas` with each Pix emenda split across the entities that
+        received it, per TransfereGov's planos de ação (see
+        caramelo.resolution.pix): the Portal files ~93% of Pix money under
+        "MÚLTIPLO". Values are prorated from the Portal's own totals by each
+        plan's share, so sums by author or year are unchanged. Use this for
+        anything grouped or filtered by município; `fonte_destino` says
+        which source placed the row. Plain `emendas` until
+        pix_beneficiarios is published."""
+        if not self.has("pix_beneficiarios"):
+            return f"(SELECT *, 'portal' AS fonte_destino FROM {self.table('emendas')})"
+        e, b, m = (self.table(t) for t in
+                   ("emendas", "pix_beneficiarios", "municipios"))
+        share = "b.share"
+        vals = ", ".join(f"e.{c} * {share} AS {c}" for c in (
+            "valor_empenhado", "valor_liquidado", "valor_pago",
+            "valor_rap_inscritos", "valor_rap_cancelados", "valor_rap_pagos"))
+        return f"""(
+            WITH b AS (
+                SELECT codigo_emenda, cod_ibge, esfera, uf AS b_uf,
+                       nome_beneficiario,
+                       valor_total / nullif(sum(valor_total) OVER (
+                           PARTITION BY codigo_emenda), 0) AS share
+                FROM {b} WHERE situacao = 'CIENTE' AND valor_total > 0)
+            SELECT *, 'portal' AS fonte_destino FROM {e}
+            WHERE NOT (is_transferencia_especial
+                       AND codigo_emenda IN (SELECT codigo_emenda FROM b))
+            UNION ALL BY NAME
+            SELECT e.* REPLACE (
+                       CASE WHEN b.esfera = 'municipio' THEN b.cod_ibge END
+                         AS codigo_ibge_municipio,
+                       mm.nome AS municipio, b.b_uf AS uf,
+                       coalesce(mm.nome, b.nome_beneficiario) AS localidade,
+                       {vals}),
+                   'transferegov' AS fonte_destino
+            FROM {e} e JOIN b USING (codigo_emenda)
+            LEFT JOIN {m} mm
+              ON b.esfera = 'municipio' AND mm.codigo_ibge = b.cod_ibge
+            WHERE e.is_transferencia_especial)"""
+
     def q(self, sql: str, params: list | None = None) -> list[dict]:
         # One cursor per query: the API serves requests from a thread pool
         # and a DuckDB connection refuses concurrent calls.
@@ -90,7 +130,7 @@ def emendas_por_municipio(lake: Lake, codigo_ibge: str,
         SELECT ano, nome_autor, tipo, is_transferencia_especial AS pix,
                nome_funcao, round(valor_empenhado, 2) AS empenhado,
                round(valor_pago, 2) AS pago
-        FROM {lake.table('emendas')}
+        FROM {lake.emendas()}
         WHERE codigo_ibge_municipio = ? AND ano >= ?
         ORDER BY valor_empenhado DESC""", [codigo_ibge, ano_min])
 
@@ -102,7 +142,7 @@ def pix_per_capita(lake: Lake, *, ano_min: int = 2023,
         SELECT m.nome, m.uf, m.populacao,
                round(sum(e.valor_empenhado), 2) AS empenhado,
                round(sum(e.valor_empenhado) / m.populacao, 2) AS per_capita
-        FROM {lake.table('emendas')} e
+        FROM {lake.emendas()} e
         JOIN {lake.table('municipios')} m
           ON e.codigo_ibge_municipio = m.codigo_ibge
         WHERE e.is_transferencia_especial AND e.ano >= ?
@@ -138,8 +178,9 @@ def politico(lake: Lake, deputado_id: int) -> dict:
         FROM {lake.table('emendas')} e
         JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
         WHERE c.deputado_id = ? GROUP BY 1 ORDER BY 1""", [deputado_id])
-    # Destination as the source records it: a município, or (for most Pix
-    # emendas) "MÚLTIPLO" / a whole UF, which the dump does not break down.
+    # Destination: the Portal's município, or for Pix the beneficiary from
+    # TransfereGov (Lake.emendas); what neither resolves stays as the
+    # Portal's localidade ("MÚLTIPLO", a whole UF).
     profile["destinos"] = lake.q(f"""
         SELECT e.codigo_ibge_municipio AS codigo_ibge,
                coalesce(any_value(e.municipio), any_value(e.localidade))
@@ -148,7 +189,7 @@ def politico(lake: Lake, deputado_id: int) -> dict:
                round(sum(e.valor_empenhado), 2) AS empenhado,
                round(sum(CASE WHEN e.is_transferencia_especial
                               THEN e.valor_empenhado ELSE 0 END), 2) AS pix
-        FROM {lake.table('emendas')} e
+        FROM {lake.emendas()} e
         JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
         WHERE c.deputado_id = ? AND e.ano >= 2023
         GROUP BY e.codigo_ibge_municipio,
@@ -225,13 +266,13 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
                round(sum(valor_pago), 2) AS pago,
                round(sum(CASE WHEN is_transferencia_especial
                               THEN valor_empenhado ELSE 0 END), 2) AS pix
-        FROM {lake.table('emendas')}
+        FROM {lake.emendas()}
         WHERE codigo_ibge_municipio = ? GROUP BY ano ORDER BY ano""",
         [codigo_ibge])
     try:
         out["categorias"] = lake.q(f"""
             SELECT c.categoria, round(sum(e.valor_empenhado), 2) AS empenhado
-            FROM {lake.table('emendas')} e
+            FROM {lake.emendas()} e
             JOIN {lake.table('emendas_categorias')} c
               ON e.codigo_emenda = c.codigo_emenda
              AND e.codigo_acao IS NOT DISTINCT FROM c.codigo_acao
@@ -244,7 +285,7 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
         out["categorias"] = lake.q(f"""
             SELECT coalesce(nome_funcao, 'Não informada') AS categoria,
                    round(sum(valor_empenhado), 2) AS empenhado
-            FROM {lake.table('emendas')}
+            FROM {lake.emendas()}
             WHERE codigo_ibge_municipio = ?
             GROUP BY 1 ORDER BY 2 DESC""", [codigo_ibge])
         out["categorias_fonte"] = "emendas.nome_funcao"
@@ -262,7 +303,7 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
                round(sum(e.valor_empenhado), 2) AS empenhado,
                round(sum(CASE WHEN e.is_transferencia_especial
                               THEN e.valor_empenhado ELSE 0 END), 2) AS pix
-        FROM {lake.table('emendas')} e
+        FROM {lake.emendas()} e
         LEFT JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
         WHERE e.codigo_ibge_municipio = ? AND e.ano >= 2023
           AND e.nome_autor IS NOT NULL
@@ -297,7 +338,7 @@ def show_detector(lake: Lake, *, ano_min: int = 2023, pop_max: int = 100000,
             SELECT codigo_ibge_municipio AS codigo_ibge,
                    sum(valor_empenhado) AS pix_rs,
                    any_value(nome_autor) AS um_autor
-            FROM {lake.table('emendas')}
+            FROM {lake.emendas()}
             WHERE is_transferencia_especial AND ano >= ?
               AND codigo_ibge_municipio IS NOT NULL
             GROUP BY 1
@@ -575,7 +616,8 @@ def painel(lake: Lake) -> dict:
     out = _painel(lake)
     # A degraded panel (tables not published yet) is cached for 10 minutes
     # only, so the full one appears soon after the next publish.
-    ttl_start = time.monotonic() - (PAINEL_TTL - 600 if out["faltando"] else 0)
+    degraded = out["faltando"] and out["faltando"] != ["gazetas"]
+    ttl_start = time.monotonic() - (PAINEL_TTL - 600 if degraded else 0)
     _PAINEL_CACHE[lake.base] = (ttl_start, out)
     return out
 
@@ -598,7 +640,7 @@ def _painel(lake: Lake) -> dict:
                    sum(valor_empenhado) AS emendas,
                    sum(CASE WHEN is_transferencia_especial
                             THEN valor_empenhado ELSE 0 END) AS pix
-            FROM {lake.table('emendas')}
+            FROM {lake.emendas()}
             WHERE ano >= 2023 AND codigo_ibge_municipio IS NOT NULL
             GROUP BY 1),
         sh AS {shows}
@@ -622,6 +664,10 @@ def _painel(lake: Lake) -> dict:
                             "gazetas") if not lake.has(t)]
     return {
         "faltando": faltando,
+        # where Pix money is placed: TransfereGov beneficiaries, or only the
+        # Portal's município field (most Pix then has no município)
+        "pix_atribuicao": ("transferegov" if lake.has("pix_beneficiarios")
+                           else "portal"),
         "colunas": cols,
         "linhas": [list(r) for r in rows],
         "metricas": {k: {"label": lbl, "unidade": u}
@@ -629,6 +675,9 @@ def _painel(lake: Lake) -> dict:
         "notas": [
             "Emendas: empenhado 2023+, Portal da Transparência; per capita "
             "sobre a população do Censo 2022.",
+            "Emendas Pix: o Portal registra a maior parte como “MÚLTIPLO”; "
+            "o destino vem dos planos de ação do TransfereGov (beneficiário "
+            "declarado), com o valor do Portal rateado entre eles.",
             "FPM, impostos próprios e cultura: último DCA (SICONFI) "
             "disponível por município; cobertura cresce a cada dia.",
             "Shows no diário: menções a contratação de show/artística no "

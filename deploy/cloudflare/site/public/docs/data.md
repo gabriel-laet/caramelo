@@ -39,6 +39,7 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 | `proposicoes_temas` | ~60k | Câmara bulk: thematic classification of each bill | daily |
 | `senado_proposicoes` | ~3.4k | Senado `/processo` API: PL, PLP, PEC, PDL, PRS authored by senators of the 57th legislature | daily |
 | `senado_proposicoes_autores` | ~7.7k | (processo, senador) authorship pairs | daily |
+| `pix_beneficiarios` | ~58k | derived from TransfereGov planos de ação (`pix_planos_acao`): one row per (emenda Pix, beneficiary) with the beneficiary resolved to an IBGE code | daily |
 
 ## Key columns and joins
 
@@ -51,6 +52,15 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 - `autores_crosswalk.nome_autor` joins `emendas.nome_autor` and
   `media.nome_autor`; `match` is `exact`, `uf`, `ambiguous` or `none`.
 - Emendas Pix = `emendas.is_transferencia_especial = true`.
+- Most Pix money is filed under `emendas.localidade = 'MÚLTIPLO'` with no
+  município. `pix_beneficiarios` places it: `codigo_emenda` joins
+  `emendas.codigo_emenda`, `cod_ibge` is the município (7 digits, `esfera =
+  'municipio'`) or the UF code for state governments (`esfera = 'estado'`).
+  `match` is `exact`, `aproximado` (renamed or respelled município),
+  `estado` or `none`. Filter `situacao = 'CIENTE'`: those plans add up to
+  the Portal's Pix `valor_empenhado` per year; `IMPEDIDO*` plans were
+  blocked. The API prorates each emenda's Portal values by
+  `valor_total` share.
 - `indicadores_municipio.cod_ibge` and `financas_municipio.cod_ibge` join
   `municipios.codigo_ibge`. Every indicator row carries `referencia`
   (period), `fonte` and `url`. Pivot with
