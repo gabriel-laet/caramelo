@@ -42,3 +42,23 @@ def push(data_dir: Path, target) -> None:
         src = data_dir / name
         if src.exists():
             target.put_bytes(f"state/{name}", src.read_bytes())
+
+
+def restore(data_dir: Path, target, tables: tuple[str, ...]) -> bool:
+    """Fall back to the last published version of `tables` after their
+    source failed. Keeps any table already present locally (e.g. written
+    before the failure). True only if every table is available afterwards."""
+    data_dir.mkdir(parents=True, exist_ok=True)
+    ok = True
+    for name in tables:
+        dest = data_dir / f"{name}.parquet"
+        if dest.exists():
+            continue
+        blob = target.get(f"latest/{name}.parquet")
+        if blob:
+            dest.write_bytes(blob)
+            print(f"state: restored {name}.parquet from the lake "
+                  f"({len(blob) // 1024}KB, stale)")
+        else:
+            ok = False
+    return ok

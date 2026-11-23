@@ -178,23 +178,46 @@ def main(argv: list[str] | None = None) -> None:
                                        else now.tm_year - 1)
         periodo = args.periodo or (max(1, (now.tm_mon - 3) // 2 + 1)
                                    if now.tm_mon > 3 else 6)
-        emendas.harvest(args.data_dir)
-        camara.harvest(args.data_dir)
-        senado.harvest(args.data_dir)
-        camara_bulk.harvest(args.data_dir, camara_bulk.DEFAULT_YEARS)
-        ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)
-        ibge.harvest(args.data_dir)
-        siconfi.harvest(args.data_dir, exercicio, periodo)
         ufs_per_run = int(os.environ.get("CARAMELO_SICONFI_UFS_PER_RUN", "4"))
-        if ufs_per_run > 0:
-            siconfi.harvest(args.data_dir, exercicio, periodo,
-                            siconfi.rotating_municipal_entes(
-                                args.data_dir, ufs_per_run))
-        # Everything above is core (a failure there aborts the run rather
-        # than publishing a manifest without it). Everything below is a
-        # secondary source: its previous table was seeded from the lake, so
-        # if the upstream is down (e.g. Querido Diário TLS outage, Nov 2026)
-        # we log, keep yesterday's rows and still publish.
+
+        def _siconfi() -> None:
+            siconfi.harvest(args.data_dir, exercicio, periodo)
+            if ufs_per_run > 0:
+                siconfi.harvest(args.data_dir, exercicio, periodo,
+                                siconfi.rotating_municipal_entes(
+                                    args.data_dir, ufs_per_run))
+
+        # Core sources: later steps read their tables, so on failure (e.g.
+        # Câmara API 504s, Nov 2026) we fall back to the last published
+        # version from the lake and carry on. Only a core source with no
+        # previous version anywhere aborts the run.
+        publish_target = make_target(target_spec)
+        stale: list[str] = []
+        for name, tables, step in (
+                ("emendas", ("emendas",), lambda: emendas.harvest(args.data_dir)),
+                ("camara", ("deputados",), lambda: camara.harvest(args.data_dir)),
+                ("senado", ("senadores",), lambda: senado.harvest(args.data_dir)),
+                ("camara-bulk", ("votacoes", "votos", "orientacoes"),
+                 lambda: camara_bulk.harvest(args.data_dir,
+                                             camara_bulk.DEFAULT_YEARS)),
+                ("ceap", ("ceap",),
+                 lambda: ceap.harvest(args.data_dir, ceap.DEFAULT_YEARS)),
+                ("ibge", ("municipios",), lambda: ibge.harvest(args.data_dir)),
+                ("siconfi", ("siconfi_rreo",), _siconfi)):
+            try:
+                step()
+            except Exception as exc:
+                print(f"run-all: core source {name} failed: {exc!r}")
+                if not state.restore(args.data_dir, publish_target, tables):
+                    raise
+                stale.append(name)
+        if stale:
+            print(f"run-all: core sources reused from the lake (stale): "
+                  f"{', '.join(stale)}")
+        # Everything below is a secondary source: its previous table was
+        # seeded from the lake, so if the upstream is down (e.g. Querido
+        # Diário TLS outage, Nov 2026) we log, keep yesterday's rows and
+        # still publish.
         from caramelo import media
         from caramelo.harvesters import (ceaps, cnpj, dca, favorecidos,
                                          gazetas, indicadores, proposicoes,

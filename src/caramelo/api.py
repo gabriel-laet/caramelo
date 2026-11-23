@@ -7,8 +7,9 @@ so REST and MCP stay in lockstep by construction.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from caramelo import domain
 
@@ -20,6 +21,7 @@ app = FastAPI(
         "All endpoints are read-only queries over the public Parquet lake."),
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=2048)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["GET"],
     allow_headers=["*"],
@@ -143,6 +145,14 @@ def _limiares(raw: str | None) -> dict[str, float]:
         except ValueError:
             raise HTTPException(422, f"limiar inválido: {part}")
     return out
+
+
+@app.get("/painel", operation_id="painel",
+         summary="Every município in one columnar payload (indicators, "
+                 "fiscal ratios, emendas per capita) for maps")
+def painel(response: Response) -> dict:
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return domain.painel(lake())
 
 
 @app.get("/propostas", operation_id="propostas",

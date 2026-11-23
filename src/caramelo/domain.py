@@ -32,7 +32,9 @@ class Lake:
         return f"'{self.base}/{name}.parquet'"
 
     def q(self, sql: str, params: list | None = None) -> list[dict]:
-        cur = self.con.execute(sql, params or [])
+        # One cursor per query: the API serves requests from a thread pool
+        # and a DuckDB connection refuses concurrent calls.
+        cur = self.con.cursor().execute(sql, params or [])
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
@@ -119,6 +121,51 @@ def politico(lake: Lake, deputado_id: int) -> dict:
         FROM {lake.table('emendas')} e
         JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
         WHERE c.deputado_id = ? GROUP BY 1 ORDER BY 1""", [deputado_id])
+    # Destination as the source records it: a município, or (for most Pix
+    # emendas) "MÚLTIPLO" / a whole UF, which the dump does not break down.
+    profile["destinos"] = lake.q(f"""
+        SELECT e.codigo_ibge_municipio AS codigo_ibge,
+               coalesce(any_value(e.municipio), any_value(e.localidade))
+                 AS nome, any_value(e.uf) AS uf,
+               count(*) AS emendas,
+               round(sum(e.valor_empenhado), 2) AS empenhado,
+               round(sum(CASE WHEN e.is_transferencia_especial
+                              THEN e.valor_empenhado ELSE 0 END), 2) AS pix
+        FROM {lake.table('emendas')} e
+        JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
+        WHERE c.deputado_id = ? AND e.ano >= 2023
+        GROUP BY e.codigo_ibge_municipio,
+                 CASE WHEN e.codigo_ibge_municipio IS NULL THEN e.localidade END
+        ORDER BY empenhado DESC LIMIT 15""", [deputado_id])
+    gov = lake.q(f"""
+        WITH gov AS (
+            SELECT id_votacao, orientacao FROM {lake.table('orientacoes')}
+            WHERE bancada = 'Governo' AND orientacao IN ('Sim', 'Não'))
+        SELECT count(*) AS votos,
+               round(avg(CASE WHEN v.voto = gov.orientacao THEN 1 ELSE 0 END),
+                     4) AS governismo
+        FROM {lake.table('votos')} v JOIN gov USING (id_votacao)
+        WHERE v.deputado_id = ? AND v.voto IN ('Sim', 'Não')""",
+        [deputado_id])
+    profile["governismo"] = gov[0] if gov and gov[0]["votos"] else None
+    try:
+        profile["proposicoes_resumo"] = {
+            "por_tipo": lake.q(f"""
+                SELECT p.sigla_tipo, count(*) AS n
+                FROM {lake.table('proposicoes_autores')} a
+                JOIN {lake.table('proposicoes')} p ON p.id = a.id_proposicao
+                WHERE a.id_deputado = ? GROUP BY 1 ORDER BY 2 DESC""",
+                [deputado_id]),
+            "temas": lake.q(f"""
+                SELECT t.tema, count(*) AS n
+                FROM {lake.table('proposicoes_autores')} a
+                JOIN {lake.table('proposicoes_temas')} t
+                  ON t.id_proposicao = a.id_proposicao
+                WHERE a.id_deputado = ? GROUP BY 1 ORDER BY 2 DESC
+                LIMIT 8""", [deputado_id]),
+        }
+    except Exception:  # proposições not published yet
+        profile["proposicoes_resumo"] = {"por_tipo": [], "temas": []}
     return profile
 
 
@@ -164,15 +211,26 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
         FROM {lake.table('emendas')}
         WHERE codigo_ibge_municipio = ? GROUP BY ano ORDER BY ano""",
         [codigo_ibge])
-    out["categorias"] = lake.q(f"""
-        SELECT c.categoria, round(sum(e.valor_empenhado), 2) AS empenhado
-        FROM {lake.table('emendas')} e
-        JOIN {lake.table('emendas_categorias')} c
-          ON e.codigo_emenda = c.codigo_emenda
-         AND e.codigo_acao IS NOT DISTINCT FROM c.codigo_acao
-         AND e.codigo_plano_orcamentario IS NOT DISTINCT FROM c.codigo_plano_orcamentario
-        WHERE e.codigo_ibge_municipio = ?
-        GROUP BY 1 ORDER BY 2 DESC""", [codigo_ibge])
+    try:
+        out["categorias"] = lake.q(f"""
+            SELECT c.categoria, round(sum(e.valor_empenhado), 2) AS empenhado
+            FROM {lake.table('emendas')} e
+            JOIN {lake.table('emendas_categorias')} c
+              ON e.codigo_emenda = c.codigo_emenda
+             AND e.codigo_acao IS NOT DISTINCT FROM c.codigo_acao
+             AND e.codigo_plano_orcamentario IS NOT DISTINCT FROM c.codigo_plano_orcamentario
+            WHERE e.codigo_ibge_municipio = ?
+            GROUP BY 1 ORDER BY 2 DESC""", [codigo_ibge])
+        out["categorias_fonte"] = "emendas_categorias"
+    except Exception:  # enrichment not published: fall back to the
+        # budget function each emenda already declares
+        out["categorias"] = lake.q(f"""
+            SELECT coalesce(nome_funcao, 'Não informada') AS categoria,
+                   round(sum(valor_empenhado), 2) AS empenhado
+            FROM {lake.table('emendas')}
+            WHERE codigo_ibge_municipio = ?
+            GROUP BY 1 ORDER BY 2 DESC""", [codigo_ibge])
+        out["categorias_fonte"] = "emendas.nome_funcao"
     try:
         out["gazetas_shows"] = lake.q(f"""
             SELECT term, data, url FROM {lake.table('gazetas')}
@@ -180,6 +238,31 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
             ORDER BY data DESC LIMIT 20""", [codigo_ibge])
     except Exception:
         out["gazetas_shows"] = []
+    out["autores"] = lake.q(f"""
+        SELECT e.nome_autor, any_value(c.deputado_id) AS deputado_id,
+               any_value(c.senador_id) AS senador_id,
+               any_value(c.uf) AS uf, count(*) AS emendas,
+               round(sum(e.valor_empenhado), 2) AS empenhado,
+               round(sum(CASE WHEN e.is_transferencia_especial
+                              THEN e.valor_empenhado ELSE 0 END), 2) AS pix
+        FROM {lake.table('emendas')} e
+        LEFT JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
+        WHERE e.codigo_ibge_municipio = ? AND e.ano >= 2023
+          AND e.nome_autor IS NOT NULL
+        GROUP BY 1 ORDER BY empenhado DESC LIMIT 15""", [codigo_ibge])
+    for key, sql in (
+            ("indicadores", f"""
+                SELECT indicador, valor, unidade, referencia, fonte, url
+                FROM {lake.table('indicadores_municipio')}
+                WHERE cod_ibge = ? ORDER BY indicador"""),
+            ("financas", f"""
+                SELECT * EXCLUDE (cod_ibge, instituicao, uf, fonte)
+                FROM {lake.table('financas_municipio')}
+                WHERE cod_ibge = ? ORDER BY exercicio""")):
+        try:
+            out[key] = lake.q(sql, [codigo_ibge])
+        except Exception:  # table not published yet
+            out[key] = []
     return out
 
 
@@ -187,7 +270,11 @@ def show_detector(lake: Lake, *, ano_min: int = 2023, pop_max: int = 100000,
                   limit: int = 50) -> list[dict]:
     """Municípios that received emendas Pix AND published show/artist
     contracts in their gazettes — the lead detector. Co-occurrence, not
-    proof of financing source."""
+    proof of financing source. Empty until gazetas is published."""
+    try:
+        lake.q(f"SELECT 1 FROM {lake.table('gazetas')} LIMIT 1")
+    except Exception:
+        return []
     return lake.q(f"""
         WITH pix AS (
             SELECT codigo_ibge_municipio AS codigo_ibge,
@@ -357,7 +444,8 @@ def propostas() -> list[dict]:
     """Bills whose stated criteria can be simulated against open data."""
     from caramelo import simulador
     return [{k: p[k] for k in ("id", "titulo", "ementa", "casa", "autoria",
-                               "apresentacao", "url", "resultado")}
+                               "apresentacao", "url", "resultado",
+                               "proposicao_id")}
             | {"criterios": [c["texto"] for c in p["criterios"]],
                "variantes": {g: list(v) for g, v in p["variantes"].items()}}
             for p in simulador.PROPOSTAS.values()]
@@ -435,6 +523,94 @@ def simular(lake: Lake, proposta_id: str, *,
                            for c in criterios}}
             for r in rows]
     return result
+
+
+PAINEL_METRICAS: dict[str, tuple[str, str]] = {
+    # column -> (label, unit); the client builds map layers from these
+    "populacao": ("População (Censo 2022)", "pessoas"),
+    "pix_per_capita": ("Emendas Pix por habitante (2023+)", "R$/hab"),
+    "emendas_per_capita": ("Todas as emendas por habitante (2023+)", "R$/hab"),
+    "fpm_pct_receita": ("FPM sobre a receita total (DCA)", "%"),
+    "impostos_proprios_pct_receita": ("IPTU + ISS + ITBI sobre a receita (DCA)", "%"),
+    "cultura_per_capita": ("Despesa com Cultura por habitante (DCA)", "R$/hab"),
+    "agua_rede_censo2022_pct": ("Água por rede geral (Censo 2022)", "%"),
+    "esgoto_rede_censo2022_pct": ("Esgoto por rede (Censo 2022)", "%"),
+    "aps_cobertura_pct": ("Cobertura potencial da APS", "%"),
+    "ideb_ai_municipal": ("Ideb anos iniciais, rede municipal (2025)", "índice"),
+    "favela_pct": ("População em favelas (Censo 2022)", "%"),
+    "shows_diario": ("Menções a shows no diário oficial", "menções"),
+}
+
+
+_PAINEL_CACHE: dict[str, tuple[float, dict]] = {}
+PAINEL_TTL = 3600.0
+
+
+def painel(lake: Lake) -> dict:
+    """Every município in one compact, columnar payload: the indicators,
+    latest DCA ratios, emendas per capita and gazette show mentions.
+    Built for maps and client-side comparison (one request, ~5.6k rows).
+    Cached per lake for an hour: the lake changes once a day."""
+    import time
+    hit = _PAINEL_CACHE.get(lake.base)
+    if hit and time.monotonic() - hit[0] < PAINEL_TTL:
+        return hit[1]
+    out = _painel(lake)
+    _PAINEL_CACHE[lake.base] = (time.monotonic(), out)
+    return out
+
+
+def _painel(lake: Lake) -> dict:
+    from caramelo import simulador
+    try:
+        lake.q(f"SELECT 1 FROM {lake.table('gazetas')} LIMIT 1")
+        shows = f"""(SELECT codigo_ibge AS cod_ibge, count(*) AS n
+                     FROM {lake.table('gazetas')}
+                     WHERE term LIKE '%show%' OR term LIKE '%art%'
+                     GROUP BY 1)"""
+    except Exception:  # gazetas not published yet
+        shows = "(SELECT NULL::VARCHAR AS cod_ibge, NULL::BIGINT AS n WHERE false)"
+    fpm = simulador.METRICAS["fpm_pct_receita"][0]
+    imp = simulador.METRICAS["impostos_proprios_pct_receita"][0]
+    rows = lake.con.cursor().execute(f"""
+        WITH p AS ({simulador.painel_sql(lake.table)}),
+        em AS (
+            SELECT codigo_ibge_municipio AS cod_ibge,
+                   sum(valor_empenhado) AS emendas,
+                   sum(CASE WHEN is_transferencia_especial
+                            THEN valor_empenhado ELSE 0 END) AS pix
+            FROM {lake.table('emendas')}
+            WHERE ano >= 2023 AND codigo_ibge_municipio IS NOT NULL
+            GROUP BY 1),
+        sh AS {shows}
+        SELECT p.cod_ibge, p.nome, p.uf,
+               p.populacao_censo2022::BIGINT AS populacao,
+               round(coalesce(em.pix, 0) / nullif(p.populacao_censo2022, 0), 2),
+               round(coalesce(em.emendas, 0) / nullif(p.populacao_censo2022, 0), 2),
+               round(({fpm})::DOUBLE, 1), round(({imp})::DOUBLE, 1),
+               round(p.despesa_cultura / nullif(p.populacao_censo2022, 0), 2),
+               round(p.agua_rede_censo2022_pct, 1),
+               round(p.esgoto_rede_censo2022_pct, 1),
+               round(p.aps_cobertura_pct, 1), p.ideb_ai_municipal,
+               round(p.favela_pct, 2), coalesce(sh.n, 0)::BIGINT,
+               p.dca_exercicio
+        FROM p LEFT JOIN em USING (cod_ibge) LEFT JOIN sh USING (cod_ibge)
+        ORDER BY p.cod_ibge""").fetchall()
+    cols = ["cod_ibge", "nome", "uf", *PAINEL_METRICAS, "dca_exercicio"]
+    return {
+        "colunas": cols,
+        "linhas": [list(r) for r in rows],
+        "metricas": {k: {"label": lbl, "unidade": u}
+                     for k, (lbl, u) in PAINEL_METRICAS.items()},
+        "notas": [
+            "Emendas: empenhado 2023+, Portal da Transparência; per capita "
+            "sobre a população do Censo 2022.",
+            "FPM, impostos próprios e cultura: último DCA (SICONFI) "
+            "disponível por município; cobertura cresce a cada dia.",
+            "Shows no diário: menções a contratação de show/artística no "
+            "Querido Diário (co-ocorrência, não prova).",
+        ],
+    }
 
 
 def simulacoes_municipio(lake: Lake, codigo_ibge: str) -> list[dict]:

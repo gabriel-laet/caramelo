@@ -4,424 +4,1017 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Explorar — Caramelo</title>
-<meta name="description" content="Explore o dinheiro público brasileiro: rankings de emendas Pix, detector de shows, perfis de políticos e municípios.">
+<meta name="description" content="Mapa do dinheiro público brasileiro: emendas, finanças municipais, indicadores sociais, projetos de lei e simulador de propostas — com fontes oficiais.">
 <style>
-  :root { color-scheme: light dark; --caramel: #d98e3b; --caramel-deep: #b06a1e; --muted: #8a8a8a;
-          --card: color-mix(in srgb, currentColor 5%, transparent);
-          --border: color-mix(in srgb, currentColor 14%, transparent); }
+  :root {
+    color-scheme: light;
+    --surface: #fcfcfb; --surface-2: #f4f3f0; --line: #e4e2dc;
+    --text: #141413; --text-2: #52514e; --muted: #7c7b76;
+    --accent: #b06a1e; --accent-soft: #f6e7d4;
+    --s1: #2a78d6; --s2: #eb6834;
+    --none: #e4e3df; --hatch: #c9c7c0;
+    --q1:#cde2fb; --q2:#9ec5f4; --q3:#6da7ec; --q4:#3987e5; --q5:#256abf; --q6:#184f95; --q7:#0d366b;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface: #1a1a19; --surface-2: #232321; --line: #34342f;
+      --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+      --accent: #e0a15a; --accent-soft: #3a2a17;
+      --s1: #3987e5; --s2: #d95926;
+      --none: #2e2e2b; --hatch: #4a4a45;
+      --q1:#0d366b; --q2:#184f95; --q3:#256abf; --q4:#3987e5; --q5:#6da7ec; --q6:#9ec5f4; --q7:#cde2fb;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface: #1a1a19; --surface-2: #232321; --line: #34342f;
+    --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
+    --accent: #e0a15a; --accent-soft: #3a2a17;
+    --s1: #3987e5; --s2: #d95926;
+    --none: #2e2e2b; --hatch: #4a4a45;
+    --q1:#0d366b; --q2:#184f95; --q3:#256abf; --q4:#3987e5; --q5:#6da7ec; --q6:#9ec5f4; --q7:#cde2fb;
+  }
   * { box-sizing: border-box; margin: 0; }
-  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; line-height: 1.5;
-         max-width: 60rem; margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
-  a { color: var(--caramel-deep); text-decoration: none; }
-  @media (prefers-color-scheme: dark) { a { color: var(--caramel); } }
+  html, body { background: var(--surface); color: var(--text); }
+  body { font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-bottom: .3rem; }
-  h1 { font-size: 1.7rem; letter-spacing: -.02em; }
-  h1 a { color: inherit; }
-  .sub { color: var(--muted); font-size: .9rem; }
-  .search { position: relative; margin: 1.2rem 0; }
-  .search input { width: 100%; padding: .7rem .9rem; font-size: 1rem; border-radius: 10px;
-                  border: 1px solid var(--border); background: var(--card); color: inherit; }
-  .results { position: absolute; z-index: 5; left: 0; right: 0; background: Canvas;
-             border: 1px solid var(--border); border-radius: 10px; margin-top: 4px;
-             max-height: 20rem; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-  .results a { display: block; padding: .5rem .8rem; color: inherit; border-bottom: 1px solid var(--border); }
-  .results a:hover { background: var(--card); text-decoration: none; }
-  .results .tag { color: var(--muted); font-size: .78rem; margin-left: .4rem; }
-  nav.tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: 1rem 0 1.4rem; }
-  .tabs button { border: 1px solid var(--border); background: var(--card); color: inherit;
-                 padding: .4rem .8rem; border-radius: 999px; cursor: pointer; font-size: .88rem; }
-  .tabs button.active { background: var(--caramel); color: #1a1205; border-color: var(--caramel); font-weight: 600; }
-  h2 { font-size: 1.15rem; margin: .2rem 0 .8rem; }
-  .note { color: var(--muted); font-size: .85rem; margin-bottom: 1rem; }
-  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
-  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .bar { height: 8px; border-radius: 4px; background: var(--caramel); opacity: .85; }
-  .barcell { min-width: 90px; }
-  .loading { color: var(--muted); padding: 1.5rem 0; }
-  .pill { display: inline-block; padding: .1rem .5rem; border-radius: 999px; background: var(--card);
-          border: 1px solid var(--border); font-size: .78rem; }
-  /* validated categorical palette (dataviz skill): slot1 blue, slot2 orange */
-  :root { --s1: #2a78d6; --s2: #eb6834; --grid: color-mix(in srgb, currentColor 12%, transparent); }
-  @media (prefers-color-scheme: dark) { :root { --s1:#3987e5; --s2:#d95926; } }
-  .chart { width: 100%; overflow-x: auto; margin: .3rem 0 1rem; }
-  .chart svg { display:block; width:100%; height:auto; }
-  .chart text { fill: var(--muted); font-size: 11px; }
-  .chart .val { fill: currentColor; font-weight: 600; }
-  .legend { display:flex; gap:1rem; font-size:.85rem; margin:.2rem 0 .6rem; flex-wrap:wrap; }
-  .legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:.35rem; vertical-align:baseline; }
-  .cmp-inputs { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin-bottom:1rem; }
-  .cmp-inputs input { padding:.55rem .7rem; border-radius:9px; border:1px solid var(--border); background:var(--card); color:inherit; width:100%; }
-  .mini { position:relative; }
-  .mini .results { max-height:14rem; }
-  .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem,1fr)); gap: .7rem; margin: 1rem 0; }
-  .stat { border: 1px solid var(--border); border-radius: 10px; padding: .7rem .9rem; }
-  .stat b { display: block; font-size: 1.3rem; color: var(--caramel-deep); font-variant-numeric: tabular-nums; }
-  @media (prefers-color-scheme: dark) { .stat b { color: var(--caramel); } }
-  .stat span { color: var(--muted); font-size: .8rem; }
-  footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
+  button { font: inherit; color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- top bar ---------- */
+  .top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--surface) 92%, transparent);
+         backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .top-in { max-width: 82rem; margin: 0 auto; padding: .7rem 16px; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .brand { font-weight: 700; font-size: 1.05rem; color: var(--text); white-space: nowrap; }
+  .brand span { color: var(--muted); font-weight: 500; }
+  nav.main { display: flex; gap: .2rem; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  nav.main a { white-space: nowrap; }
+  nav.main a { color: var(--text-2); padding: .35rem .7rem; border-radius: 999px; font-size: .9rem; }
+  nav.main a:hover { background: var(--surface-2); text-decoration: none; }
+  nav.main a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .search { position: relative; flex: 1 1 16rem; min-width: 12rem; }
+  .search input { width: 100%; padding: .5rem .8rem; border-radius: 999px; border: 1px solid var(--line);
+                  background: var(--surface-2); color: var(--text); font: inherit; font-size: .9rem; }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .results { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); background: var(--surface);
+             border: 1px solid var(--line); border-radius: var(--radius); max-height: 24rem; overflow-y: auto;
+             box-shadow: 0 12px 32px rgba(0,0,0,.14); }
+  .results a { display: flex; justify-content: space-between; gap: .6rem; padding: .5rem .85rem; color: var(--text);
+               border-bottom: 1px solid var(--line); font-size: .9rem; }
+  .results a:hover, .results a.sel { background: var(--surface-2); text-decoration: none; }
+  .results .k { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+
+  main { max-width: 82rem; margin: 0 auto; padding: 1.2rem 16px 4rem; }
+  h1 { font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -.02em; line-height: 1.2; }
+  h2 { font-size: 1.1rem; letter-spacing: -.01em; margin: 0 0 .6rem; }
+  h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 .6rem; font-weight: 600; }
+  .lede { color: var(--text-2); max-width: 46rem; margin: .35rem 0 0; }
+  .note { color: var(--muted); font-size: .82rem; }
+  .pill { display: inline-block; padding: .05rem .5rem; border-radius: 999px; border: 1px solid var(--line);
+          font-size: .75rem; color: var(--text-2); vertical-align: middle; white-space: nowrap; }
+  .crumb { font-size: .85rem; color: var(--muted); margin-bottom: .4rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; }
+  .grid { display: grid; gap: 1rem; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); }
+  section { margin-top: 1.6rem; }
+  .loading { color: var(--muted); padding: 2rem 0; }
+  .err { color: var(--muted); padding: 1rem 0; }
+
+  /* ---------- stat tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .7rem; margin-top: 1rem; }
+  .tile { border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .9rem; }
+  .tile b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .tile span { color: var(--muted); font-size: .8rem; }
+
+  /* ---------- map home ---------- */
+  .atlas { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1rem; margin-top: 1rem; align-items: start; }
+  @media (max-width: 960px) { .atlas { grid-template-columns: 1fr; } }
+  .mapbox { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .mapbox svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  .mapbox path.m { stroke: var(--surface); stroke-width: .25; vector-effect: non-scaling-stroke; cursor: pointer; }
+  .mapbox path.m:hover, .mapbox path.m.hl { stroke: var(--text); stroke-width: 1.4; }
+  .mapbox path.uf { fill: none; stroke: var(--text-2); stroke-opacity: .55; stroke-width: .7; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .mapbox path.sel { fill: none; stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .map-ctl { position: absolute; top: .7rem; left: .7rem; display: flex; gap: .4rem; flex-wrap: wrap; }
+  .map-ctl select, .chip { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px;
+                           padding: .3rem .7rem; font-size: .82rem; cursor: pointer; }
+  .legend { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--text-2); }
+  .ramp { display: flex; align-items: stretch; flex: 1 1 18rem; max-width: 30rem; min-width: 0; }
+  .ramp div { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; }
+  .ramp small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ramp i { height: 10px; display: block; margin-right: 2px; }
+  .ramp div:first-child i { border-radius: 4px 0 0 4px; }
+  .ramp div:last-child i { border-radius: 0 4px 4px 0; margin-right: 0; }
+  .ramp small { font-size: .68rem; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: .3rem; }
+  .sw.nd { background: repeating-linear-gradient(45deg, var(--none) 0 3px, var(--hatch) 3px 4.5px); }
+  .tip { position: fixed; z-index: 50; pointer-events: none; background: var(--surface); color: var(--text);
+         border: 1px solid var(--line); border-radius: 10px; padding: .5rem .7rem; font-size: .82rem;
+         box-shadow: 0 8px 24px rgba(0,0,0,.16); max-width: 18rem; }
+  .tip b { display: block; font-size: .9rem; }
+  .tip .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .tip .k { color: var(--muted); }
+
+  .side { display: flex; flex-direction: column; gap: 1rem; }
+  .layers { display: flex; flex-direction: column; gap: .15rem; }
+  .layers .grp { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: .55rem 0 .15rem; }
+  .layers .grp:first-child { margin-top: 0; }
+  .layers button { text-align: left; border: 0; background: none; padding: .35rem .55rem; border-radius: 8px; cursor: pointer; font-size: .88rem; color: var(--text-2); }
+  .layers button:hover { background: var(--surface-2); }
+  .layers button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .rank { list-style: none; padding: 0; }
+  .rank li { display: grid; grid-template-columns: 1.4rem 1fr auto; gap: .4rem; align-items: baseline; padding: .28rem 0; border-bottom: 1px solid var(--line); font-size: .86rem; }
+  .rank li:last-child { border-bottom: 0; }
+  .rank .i { color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+  .rank .v { font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+  /* ---------- bars / distributions ---------- */
+  .bars { display: flex; flex-direction: column; gap: .35rem; }
+  .bar-row { display: grid; grid-template-columns: minmax(7rem, 44%) 1fr auto; gap: .6rem; align-items: center; font-size: .86rem; }
+  .bar-row .lab { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-row .track { height: 10px; }
+  .bar-row .fill { height: 10px; border-radius: 0 4px 4px 0; background: var(--s1); min-width: 2px; }
+  .bar-row .val { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: .82rem; white-space: nowrap; }
+  .dist { display: grid; grid-template-columns: minmax(9rem, 34%) 1fr; gap: .4rem 1rem; align-items: center; }
+  .dist .lab { font-size: .86rem; }
+  .dist .lab small { display: block; color: var(--muted); font-size: .75rem; }
+  .dist .lab small b { color: var(--text); font-weight: 600; }
+  .dist svg { width: 100%; height: 30px; display: block; }
+  .dist svg .h { fill: var(--line); }
+  .dist svg .mk { stroke: var(--accent); stroke-width: 2.5; }
+  .dist svg text { font-size: 10.5px; fill: var(--text-2); font-variant-numeric: tabular-nums; }
+  .dist .row-sep { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .chart text { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .key { display: flex; gap: 1rem; font-size: .8rem; color: var(--text-2); margin-bottom: .4rem; flex-wrap: wrap; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .45rem .55rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+  td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+
+  /* ---------- simulator ---------- */
+  .sim { display: grid; grid-template-columns: 22rem minmax(0, 1fr); gap: 1rem; margin-top: 1rem; align-items: start; }
+  @media (max-width: 960px) { .sim { grid-template-columns: 1fr; } }
+  .crit { padding: .75rem 0; border-bottom: 1px solid var(--line); }
+  .crit:last-child { border-bottom: 0; }
+  .crit .t { font-size: .84rem; color: var(--text-2); }
+  .crit .row { display: flex; align-items: center; gap: .6rem; margin-top: .35rem; }
+  .crit input[type=range] { flex: 1; accent-color: var(--accent); }
+  .crit .lv { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.5rem; text-align: right; }
+  .crit .mini { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-top: .45rem; gap: 2px; }
+  .crit .mini i { display: block; }
+  .crit .cap { font-size: .74rem; color: var(--muted); margin-top: .2rem; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .seg button { border: 0; background: none; padding: .3rem .8rem; font-size: .82rem; cursor: pointer; color: var(--text-2); }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .outcome { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+  .outcome .tile b { font-size: 1.6rem; }
+  .ok { background: var(--s1); } .no { background: var(--none); }
+  ul.plain { padding-left: 1.1rem; color: var(--text-2); font-size: .86rem; }
+  ul.plain li { margin: .2rem 0; }
+  .checks { list-style: none; padding: 0; }
+  .checks li { display: grid; grid-template-columns: 1.3rem 1fr auto; gap: .4rem; padding: .3rem 0; font-size: .86rem; border-bottom: 1px solid var(--line); }
+  .checks li:last-child { border-bottom: 0; }
+  .st { font-weight: 700; }
+  .st.a { color: var(--s1); } .st.n { color: var(--muted); } .st.s { color: var(--muted); }
+  .tag { display: inline-block; padding: .08rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+  .tag.atende { background: color-mix(in srgb, var(--s1) 18%, transparent); color: var(--s1); }
+  .tag.nao_atende { background: var(--surface-2); color: var(--text-2); }
+  .tag.indeterminado { background: repeating-linear-gradient(45deg, var(--surface-2) 0 4px, var(--line) 4px 6px); color: var(--text-2); }
+
+  .bill { padding: .8rem 0; border-bottom: 1px solid var(--line); }
+  .bill:last-child { border-bottom: 0; }
+  .bill .s { font-weight: 600; }
+  .bill .e { color: var(--text-2); font-size: .88rem; margin-top: .15rem; }
+  .bill .m { color: var(--muted); font-size: .78rem; margin-top: .2rem; }
+  .filters { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
+  .filters input, .filters select { border: 1px solid var(--line); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: .4rem .8rem; font: inherit; font-size: .88rem; }
+  .filters input { flex: 1 1 16rem; }
+  .tabs2 { display: flex; gap: .3rem; flex-wrap: wrap; margin: 1rem 0; }
+  footer { max-width: 82rem; margin: 0 auto; padding: 1.5rem 16px 2.5rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); }
+  @media (prefers-reduced-motion: no-preference) { .mapbox g.zoom { transition: transform .45s ease; } }
 </style>
 </head>
 <body>
-<header>
-  <h1><a href="/">🐕 Caramelo</a> · Explorar</h1>
-  <span class="sub">o dinheiro público, navegável</span>
-</header>
-
-<div class="search">
-  <input id="q" type="search" placeholder="Busque um político ou município (ex.: Nikolas, Coxixola)…" autocomplete="off">
-  <div id="results" class="results" hidden></div>
-</div>
-
-<nav class="tabs" id="tabs">
-  <button data-view="pix" class="active">Top emendas Pix</button>
-  <button data-view="percapita">Pix per capita</button>
-  <button data-view="detector">Detector de shows</button>
-  <button data-view="categorias">Para onde vai</button>
-  <button data-view="partidos">Partidos</button>
-  <button data-view="governismo">Governismo</button>
-  <button data-view="favorecidos">Recebedores</button>
-  <button data-view="compare">Comparar</button>
-  <button data-view="tabelas">Tabelas</button>
-</nav>
+<div class="top"><div class="top-in">
+  <a class="brand" href="/">🐕 Caramelo <span>· Explorar</span></a>
+  <nav class="main" id="nav">
+    <a href="#/" data-r="">Mapa</a>
+    <a href="#/simulador" data-r="simulador">Simulador</a>
+    <a href="#/leis" data-r="leis">Projetos de lei</a>
+    <a href="#/rankings" data-r="rankings">Rankings</a>
+    <a href="#/tabelas" data-r="tabelas">Tabelas</a>
+  </nav>
+  <div class="search">
+    <input id="q" type="search" placeholder="Município, deputado ou projeto (ex.: Birigui, Kataguiri, show)…" autocomplete="off" aria-label="Buscar">
+    <div id="results" class="results" hidden></div>
+  </div>
+</div></div>
 
 <main id="view"><div class="loading">carregando…</div></main>
 
 <footer>
-  Dados públicos oficiais via <a href="https://api.caramelo.dev.br/docs">API Caramelo</a> ·
-  <a href="/docs/data.md">documentação</a> ·
-  co-ocorrência não é prova; o detector aponta pistas, não condena.
+  Dados públicos oficiais (IBGE, Tesouro/SICONFI, Ministério da Saúde, Inep, SINISA, Câmara, Senado, Portal da Transparência)
+  via <a href="https://api.caramelo.dev.br/docs">API Caramelo</a> · <a href="/docs/data.md">documentação e fontes</a>.
+  Neutro por construção: o Caramelo mostra os dados e os critérios declarados, nunca rótulos de bom ou ruim.
 </footer>
+<div class="tip" id="tip" hidden></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 <script>
-const API = "https://api.caramelo.dev.br";
-const brl = n => "R$ " + Math.round(n).toLocaleString("pt-BR");
-const el = (h) => { const d = document.createElement("div"); d.innerHTML = h; return d.firstElementChild; };
+"use strict";
+const API = new URLSearchParams(location.search).get("api")
+  || (["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787" : "https://api.caramelo.dev.br");
 const view = document.getElementById("view");
+const tip = document.getElementById("tip");
 
-async function get(path) { const r = await fetch(API + path); if (!r.ok) throw new Error(r.status); return r.json(); }
+// ---------------------------------------------------------------- utils
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf = (n, d = 0) => n == null || isNaN(n) ? "—" : Number(n).toLocaleString("pt-BR", {maximumFractionDigits: d, minimumFractionDigits: d});
+const brl = n => n == null ? "—" : "R$ " + compact(n);
+function compact(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return nf(n / 1e9, 1) + " bi";
+  if (a >= 1e6) return nf(n / 1e6, 1) + " mi";
+  if (a >= 1e4) return nf(n / 1e3, 0) + " mil";
+  return nf(n, a < 100 && a % 1 ? 2 : 0);
+}
+function fmtUnit(v, unit) {
+  if (v == null) return "sem dado";
+  if (unit === "%") return nf(v, v < 10 ? 1 : 0) + "%";
+  if (unit === "R$/hab") return "R$ " + nf(v, v < 10 ? 2 : 0);
+  if (unit === "índice") return nf(v, 1);
+  if (unit === "pessoas") return compact(v);
+  return nf(v);
+}
+const titleCase = s => String(s || "").toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
+  .replace(/\b(D[aeo]s?|E)\b/g, w => w.toLowerCase());
+const cache = new Map();
+async function get(path) {
+  if (cache.has(path)) return cache.get(path);
+  const p = fetch(API + path).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  cache.set(path, p);
+  p.catch(() => cache.delete(path));
+  return p;
+}
+const loading = (msg = "carregando…") => { view.innerHTML = `<div class="loading">${msg}</div>`; };
+const fail = (e, what) => { view.innerHTML = `<p class="err">Não foi possível carregar ${what} (${esc(e.message)}). A API pode estar iniciando — tente de novo em alguns segundos.</p>`; };
 
-function table(cols, rows, maxVal) {
-  const head = cols.map(c => `<th class="${c.num?'num':''}">${c.label}</th>`).join("");
-  const body = rows.map(r => "<tr>" + cols.map(c => {
-    if (c.bar) {
-      const w = Math.max(2, Math.round(100 * c.barVal(r) / maxVal));
-      return `<td class="barcell"><div class="bar" style="width:${w}%"></div></td>`;
+const UF = {11:"RO",12:"AC",13:"AM",14:"RR",15:"PA",16:"AP",17:"TO",21:"MA",22:"PI",23:"CE",24:"RN",25:"PB",26:"PE",27:"AL",28:"SE",29:"BA",31:"MG",32:"ES",33:"RJ",35:"SP",41:"PR",42:"SC",43:"RS",50:"MS",51:"MT",52:"GO",53:"DF"};
+const UF_SIGLAS = Object.values(UF).sort();
+
+// ---------------------------------------------------------------- data
+let PAINEL = null, GEO = null;
+async function painel() {
+  if (PAINEL) return PAINEL;
+  const d = await get("/painel");
+  const idx = Object.fromEntries(d.colunas.map((c, i) => [c, i]));
+  const rows = d.linhas.map(l => Object.fromEntries(d.colunas.map(c => [c, l[idx[c]]])));
+  PAINEL = {rows, byCod: Object.fromEntries(rows.map(r => [r.cod_ibge, r])), metricas: d.metricas, notas: d.notas};
+  return PAINEL;
+}
+async function geo() {
+  if (GEO) return GEO;
+  const t = await fetch("/geo/municipios.topo.json").then(r => r.json());
+  GEO = {mun: topojson.feature(t, t.objects.mun).features, uf: topojson.feature(t, t.objects.uf).features,
+         ufMesh: topojson.mesh(t, t.objects.uf, (a, b) => a !== b), outline: topojson.mesh(t, t.objects.uf, (a, b) => a === b)};
+  return GEO;
+}
+function sortedValues(key, filter) {
+  return PAINEL.rows.filter(r => r[key] != null && (!filter || filter(r))).map(r => r[key]).sort((a, b) => a - b);
+}
+function pctBelow(sorted, v) { // share of municípios strictly below v
+  let lo = 0, hi = sorted.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m] < v) lo = m + 1; else hi = m; }
+  return sorted.length ? lo / sorted.length : 0;
+}
+
+// ---------------------------------------------------------------- map
+const QV = ["--q1","--q2","--q3","--q4","--q5","--q6","--q7"].map(v => `var(${v})`);
+function quantileBreaks(sorted, n = 7) {
+  const br = [];
+  for (let i = 1; i < n; i++) br.push(sorted[Math.min(sorted.length - 1, Math.floor(i * sorted.length / n))]);
+  return [...new Set(br)];
+}
+function makeMap(host, {onHover, onClick, height = 620} = {}) {
+  const H = height, W = Math.round(height * 1.02);
+  const svg = d3.select(host).append("svg").attr("viewBox", `0 0 ${W} ${H}`).attr("role", "img");
+  svg.append("defs").html(`<pattern id="hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+    <rect width="5" height="5" style="fill:var(--none)"/><line x1="0" y1="0" x2="0" y2="5" style="stroke:var(--hatch);stroke-width:2"/></pattern>`);
+  const g = svg.append("g").attr("class", "zoom");
+  const proj = d3.geoMercator().fitExtent([[12, 12], [W - 12, H - 12]], {type: "FeatureCollection", features: GEO.uf});
+  const path = d3.geoPath(proj);
+  const paths = g.selectAll("path.m").data(GEO.mun).join("path").attr("class", "m").attr("d", path)
+    .attr("fill", "url(#hatch)")
+    .on("pointermove", (ev, f) => onHover && onHover(ev, f.properties.id))
+    .on("pointerleave", () => { tip.hidden = true; })
+    .on("click", (ev, f) => onClick && onClick(f.properties.id));
+  g.append("path").attr("class", "uf").attr("d", path(GEO.ufMesh));
+  g.append("path").attr("class", "uf").attr("d", path(GEO.outline));
+  const sel = g.append("path").attr("class", "sel");
+  const api = {
+    color(fn) { paths.attr("fill", f => fn(f.properties.id) || "url(#hatch)"); return api; },
+    zoomUF(sigla) {
+      if (!sigla) { g.attr("transform", null); return api; }
+      const code = Object.keys(UF).find(k => UF[k] === sigla);
+      const f = GEO.uf.find(x => String(x.properties.uf) === code);
+      if (!f) return api;
+      const [[x0, y0], [x1, y1]] = path.bounds(f);
+      const k = Math.min(12, 0.92 / Math.max((x1 - x0) / W, (y1 - y0) / H));
+      const tx = W / 2 - k * (x0 + x1) / 2, ty = H / 2 - k * (y0 + y1) / 2;
+      g.attr("transform", `translate(${tx},${ty}) scale(${k})`);
+      return api;
+    },
+    select(cod) {
+      const f = GEO.mun.find(x => x.properties.id === cod);
+      sel.attr("d", f ? path(f) : null); return api;
+    },
+  };
+  return api;
+}
+function showTip(ev, html) {
+  tip.innerHTML = html; tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+
+// ---------------------------------------------------------------- layers
+const LAYERS = [
+  {grp: "Dinheiro federal", key: "pix_per_capita"},
+  {grp: "Dinheiro federal", key: "emendas_per_capita"},
+  {grp: "Finanças do município", key: "fpm_pct_receita"},
+  {grp: "Finanças do município", key: "impostos_proprios_pct_receita"},
+  {grp: "Finanças do município", key: "cultura_per_capita"},
+  {grp: "Serviços e condições", key: "agua_rede_censo2022_pct"},
+  {grp: "Serviços e condições", key: "esgoto_rede_censo2022_pct"},
+  {grp: "Serviços e condições", key: "aps_cobertura_pct"},
+  {grp: "Serviços e condições", key: "ideb_ai_municipal"},
+  {grp: "Serviços e condições", key: "favela_pct"},
+  {grp: "Serviços e condições", key: "populacao"},
+  {grp: "Simulações", key: "sim:pl-5870-2026", label: "PL 5.870/2026 — shows com recurso público"},
+  {grp: "Simulações", key: "sim:pec-188-2019-art6", label: "PEC 188/2019 — regra de incorporação"},
+];
+const SIM_COLORS = {atende: "var(--s1)", nao_atende: "var(--none)", indeterminado: "url(#hatch)"};
+const SIM_LABEL = {atende: "atende", nao_atende: "não atende", indeterminado: "sem dado suficiente"};
+
+// ================================================================ HOME
+const home = {layer: "pix_per_capita", uf: ""};
+async function viewHome() {
+  loading("carregando mapa…");
+  try { await Promise.all([painel(), geo()]); } catch (e) { return fail(e, "o mapa"); }
+  const groups = [...new Set(LAYERS.map(l => l.grp))];
+  view.innerHTML = `
+    <h1>O dinheiro público, município por município</h1>
+    <p class="lede">Emendas parlamentares, finanças municipais, serviços básicos e simulações de projetos de lei para os 5.570 municípios — tudo de fontes oficiais, cruzado num só lugar. Clique em um município para ver o perfil completo.</p>
+    <div class="atlas">
+      <div class="mapbox">
+        <div class="map-ctl">
+          <select id="uf" aria-label="Estado"><option value="">Brasil inteiro</option>${UF_SIGLAS.map(s => `<option>${s}</option>`).join("")}</select>
+        </div>
+        <div id="map"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="side">
+        <div class="card"><h3>Camada</h3><div class="layers" id="layers">${groups.map(g => `<div class="grp">${g}</div>` +
+          LAYERS.filter(l => l.grp === g).map(l => `<button data-k="${l.key}">${esc(l.label || PAINEL.metricas[l.key].label)}</button>`).join("")).join("")}</div></div>
+        <div class="card" id="layerinfo"></div>
+      </div>
+    </div>
+    <section class="grid g3" id="cards"></section>`;
+  const map = makeMap(document.getElementById("map"), {
+    onHover: (ev, cod) => {
+      const r = PAINEL.byCod[cod]; if (!r) return;
+      showTip(ev, `<b>${esc(r.nome)} <span class="k">${r.uf}</span></b>${layerTip(r)}`);
+    },
+    onClick: cod => { location.hash = "#/m/" + cod; },
+  });
+  document.getElementById("uf").value = home.uf;
+  document.getElementById("uf").onchange = e => { home.uf = e.target.value; map.zoomUF(home.uf); paint(); };
+  document.getElementById("layers").onclick = e => { const k = e.target.dataset.k; if (k) { home.layer = k; paint(); } };
+  let simCache = {};
+  function layerTip(r) {
+    if (home.layer.startsWith("sim:")) {
+      const s = simCache[home.layer]?.byCod[r.cod_ibge];
+      return s ? `<span class="k">resultado:</span> <span class="v">${SIM_LABEL[s.resultado]}</span>` : "";
     }
-    return `<td class="${c.num?'num':''}">${c.get(r)}</td>`;
-  }).join("") + "</tr>").join("");
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    const m = PAINEL.metricas[home.layer];
+    return `<span class="k">${esc(m.label)}:</span> <span class="v">${fmtUnit(r[home.layer], m.unidade)}</span>`;
+  }
+  async function paint() {
+    document.querySelectorAll("#layers button").forEach(b => b.classList.toggle("on", b.dataset.k === home.layer));
+    const inUF = r => !home.uf || r.uf === home.uf;
+    const info = document.getElementById("layerinfo"), legend = document.getElementById("legend");
+    if (home.layer.startsWith("sim:")) {
+      const pid = home.layer.slice(4);
+      if (!simCache[home.layer]) {
+        info.innerHTML = `<div class="loading">simulando…</div>`;
+        try {
+          const d = await get(`/simulador/${pid}`);
+          simCache[home.layer] = {d, byCod: Object.fromEntries(d.municipios.map(m => [m.cod_ibge, m]))};
+        } catch (e) { info.innerHTML = `<p class="err">simulação indisponível (${esc(e.message)})</p>`; return; }
+      }
+      const {d, byCod} = simCache[home.layer];
+      map.color(cod => SIM_COLORS[byCod[cod]?.resultado]);
+      const ms = d.municipios.filter(inUF);
+      const cnt = k => ms.filter(m => m.resultado === k).length;
+      legend.innerHTML = ["atende", "nao_atende", "indeterminado"].map(k =>
+        `<span><i class="sw ${k === "indeterminado" ? "nd" : ""}" style="${k === "indeterminado" ? "" : "background:" + SIM_COLORS[k]}"></i>${SIM_LABEL[k]} <b class="num">${nf(cnt(k))}</b></span>`).join("");
+      const ok = ms.filter(m => m.resultado === "atende").sort((a, b) => b.populacao - a.populacao);
+      info.innerHTML = `<h3>${esc(d.proposta.titulo)}</h3>
+        <p class="note" style="margin-bottom:.6rem">${esc(d.proposta.resultado)}. Critérios declarados no texto do projeto, aplicados a cada município.</p>
+        <ol class="rank">${ok.slice(0, 8).map((m, i) => `<li><span class="i">${i + 1}</span><a href="#/m/${m.cod_ibge}">${esc(m.nome)} <span class="pill">${m.uf}</span></a><span class="v">${compact(m.populacao)} hab.</span></li>`).join("") || '<li><span></span><span class="note">nenhum município atende</span><span></span></li>'}</ol>
+        <p style="margin-top:.7rem"><a href="#/simulador/${pid}">Abrir no simulador e ajustar os limites →</a></p>`;
+      return;
+    }
+    const m = PAINEL.metricas[home.layer];
+    const vals = sortedValues(home.layer);
+    // Skewed layers (most municípios at exactly 0): zero is its own bin and
+    // the quantiles split only the positive values.
+    const zeroHeavy = vals.length && vals[0] === 0 && vals.filter(v => v === 0).length > vals.length / 7;
+    const pos = zeroHeavy ? vals.filter(v => v > 0) : vals;
+    const br = quantileBreaks(pos, zeroHeavy ? 6 : 7);
+    const posColors = QV.slice(QV.length - br.length - 1);
+    const scale = d3.scaleThreshold().domain(br).range(posColors);
+    const color = v => zeroHeavy && v === 0 ? QV[0] : scale(v);
+    const fullRamp = zeroHeavy ? [QV[0], ...posColors] : posColors;
+    map.color(cod => { const r = PAINEL.byCod[cod]; return r && r[home.layer] != null ? color(r[home.layer]) : null; });
+    const labels = zeroHeavy ? ["0", "> 0", ...br.map(b => "≥ " + fmtUnit(b, m.unidade))]
+                             : [fmtUnit(vals[0], m.unidade), ...br.map(b => "≥ " + fmtUnit(b, m.unidade))];
+    legend.innerHTML = `<span>${esc(m.label)}</span><div class="ramp">${fullRamp.map((c, i) =>
+      `<div><i style="background:${c}"></i><small>${labels[i] ?? ""}</small></div>`).join("")}</div>
+      <span><i class="sw nd"></i>sem dado</span>
+      ${home.layer === "pix_per_capita" ? `<span class="note" style="flex-basis:100%">Atenção: ~93% do valor das emendas Pix desde 2023 aparece como “MÚLTIPLO” no Portal da Transparência, sem município. Este mapa mostra só a parte atribuída a um município.</span>` : ""}`;
+    const scope = PAINEL.rows.filter(inUF);
+    const withVal = scope.filter(r => r[home.layer] != null);
+    const sv = withVal.map(r => r[home.layer]).sort((a, b) => a - b);
+    const med = sv.length ? sv[Math.floor(sv.length / 2)] : null;
+    const top = [...withVal].sort((a, b) => b[home.layer] - a[home.layer]).slice(0, 10);
+    const pop = r => r.populacao || 0;
+    info.innerHTML = `<h3>${home.uf || "Brasil"} · ${esc(m.label)}</h3>
+      <div class="tiles" style="margin-top:0;grid-template-columns:1fr 1fr">
+        <div class="tile"><b>${fmtUnit(med, m.unidade)}</b><span>mediana dos municípios</span></div>
+        <div class="tile"><b>${nf(withVal.length)}</b><span>de ${nf(scope.length)} com dado</span></div>
+      </div>
+      <h3 style="margin-top:1rem">Maiores valores</h3>
+      <ol class="rank">${top.map((r, i) => `<li><span class="i">${i + 1}</span><a href="#/m/${r.cod_ibge}">${esc(r.nome)} <span class="pill">${r.uf}</span></a><span class="v">${fmtUnit(r[home.layer], m.unidade)}</span></li>`).join("")}</ol>
+      ${["fpm_pct_receita", "impostos_proprios_pct_receita", "cultura_per_capita"].includes(home.layer)
+        ? `<p class="note" style="margin-top:.6rem">Contas anuais (DCA/SICONFI) ainda em carga: cerca de 1.500 municípios novos por dia.</p>` : ""}`;
+    void pop;
+  }
+  map.zoomUF(home.uf);
+  paint();
+  homeCards();
 }
-
-// --- SVG charts (theme-aware, dependency-free) ---
-function svgHBars(rows, {label, value, fmt, pct}) {
+async function homeCards() {
+  const host = document.getElementById("cards");
+  const cards = [];
+  try {
+    const [p, s] = await Promise.all([get("/propostas"), get("/simulador/pl-5870-2026?municipios=false")]);
+    const a = s.resumo.atende || {municipios: 0, populacao: 0};
+    cards.push(`<div class="card"><h3>Simulador de propostas</h3>
+      <p><b class="num" style="font-size:1.6rem">${nf(a.municipios)}</b> municípios (${compact(a.populacao)} de pessoas) atenderiam aos requisitos sociais do <b>PL 5.870/2026</b> para contratar shows com dinheiro público.</p>
+      <p class="note" style="margin-top:.4rem">${p.length} propostas simuláveis · critérios do próprio texto, limites ajustáveis.</p>
+      <p style="margin-top:.5rem"><a href="#/simulador">Explorar o simulador →</a></p></div>`);
+  } catch {}
+  try {
+    const b = await get("/proposicoes?limit=4");
+    cards.push(`<div class="card"><h3>Projetos de lei recentes</h3>${b.map(x => `<div class="bill" style="padding:.45rem 0"><a class="s" href="#/b/${x.id}">${esc(x.sigla)}</a> <span class="note">${esc(x.data_apresentacao || "").slice(0, 10)}</span><div class="e">${esc(trim(x.ementa, 110))}</div></div>`).join("")}
+      <p style="margin-top:.5rem"><a href="#/leis">Buscar projetos →</a></p></div>`);
+  } catch {}
+  try {
+    const d = await get("/emendas/autores?apenas_pix=true&limit=5");
+    cards.push(`<div class="card"><h3>Quem mais enviou emendas Pix (2023+)</h3><div class="bars">${barRows(d, r => politicoLink(r, r.nome_autor), r => r.empenhado, brl)}</div>
+      <p style="margin-top:.6rem"><a href="#/rankings">Mais rankings →</a></p></div>`);
+  } catch {}
+  host.innerHTML = cards.join("");
+}
+const trim = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+function politicoLink(r, nome) {
+  const n = esc(titleCase(nome));
+  if (r.deputado_id) return `<a href="#/p/${r.deputado_id}">${n}</a>`;
+  return n;
+}
+function barRows(rows, label, value, fmt) {
   const max = Math.max(...rows.map(value), 1);
-  const rh = 26, w = 640, labelW = 160, valW = 82, barW = w - labelW - valW;
-  const h = rows.length * rh + 6;
-  const bars = rows.map((r, i) => {
-    const y = i * rh + 3, bw = Math.max(2, (value(r) / max) * barW);
-    const v = pct ? (value(r) * 100).toFixed(0) + "%" : fmt(value(r));
-    return `<text x="0" y="${y+15}" >${label(r)}</text>
-      <rect x="${labelW}" y="${y+4}" width="${bw}" height="14" rx="4" fill="var(--s1)"/>
-      <text class="val" x="${labelW+bw+6}" y="${y+15}">${v}</text>`;
+  return rows.map(r => `<div class="bar-row"><span class="lab">${label(r)}</span><span class="track"><div class="fill" style="width:${Math.max(.4, 100 * value(r) / max)}%"></div></span><span class="val">${fmt(value(r))}</span></div>`).join("");
+}
+
+// ================================================================ MUNICÍPIO
+const DIST_KEYS = ["pix_per_capita", "emendas_per_capita", "fpm_pct_receita", "impostos_proprios_pct_receita", "cultura_per_capita",
+  "agua_rede_censo2022_pct", "esgoto_rede_censo2022_pct", "aps_cobertura_pct", "ideb_ai_municipal", "favela_pct"];
+function distSvg(sorted, v) {
+  // Histogram of all municípios (zeros left out when they dominate: the
+  // caption states their share) with this município's position marked.
+  const W = 400, H = 30, B = 40;
+  const zeros = sorted.length && sorted[0] === 0 ? sorted.filter(x => x === 0).length : 0;
+  const xs = zeros > sorted.length / 7 ? sorted.filter(x => x > 0) : sorted;
+  if (!xs.length) return "";
+  const lo = xs[0], hi = xs[Math.floor(xs.length * 0.98)] ?? xs[xs.length - 1];
+  const span = (hi - lo) || 1;
+  const counts = new Array(B).fill(0);
+  for (const x of xs) counts[Math.min(B - 1, Math.max(0, Math.floor((x - lo) / span * B)))]++;
+  const cmax = Math.max(...counts), bw = W / B;
+  const bars = counts.map((c, i) => `<rect class="h" x="${i * bw + .5}" y="${H - 26 * c / cmax}" width="${bw - 1}" height="${26 * c / cmax}"/>`).join("");
+  let mk = "";
+  if (v != null && !(v === 0 && xs !== sorted)) {
+    const x = Math.max(1.5, Math.min(W - 1.5, (v - lo) / span * W));
+    mk = `<line class="mk" x1="${x}" x2="${x}" y1="0" y2="${H}" vector-effect="non-scaling-stroke"/>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${bars}${mk}</svg>`;
+}
+function distCaption(sorted, v, unit, pBR, pUF, uf) {
+  if (v == null) return "sem dado";
+  const zeros = sorted.length && sorted[0] === 0 ? sorted.filter(x => x === 0).length : 0;
+  const zs = zeros > sorted.length / 7 ? ` · ${Math.round(100 * zeros / sorted.length)}% dos municípios têm zero` : "";
+  return `<b class="num">${fmtUnit(v, unit)}</b> · acima de ${pBR}% do Brasil, ${pUF}% de ${esc(uf)}${zs}`;
+}
+async function viewMunicipio(cod) {
+  loading("carregando município…");
+  let m, sims;
+  try {
+    [m, sims] = await Promise.all([get("/municipios/" + cod), get(`/municipios/${cod}/propostas`).catch(() => []), painel(), geo()]);
+  } catch (e) { return fail(e, "o município"); }
+  if (!m || !m.nome) { view.innerHTML = `<p class="err">Município não encontrado. <a href="#/">Voltar ao mapa</a></p>`; return; }
+  const row = PAINEL.byCod[cod] || {};
+  const anos = m.emendas_por_ano || [];
+  const tot = k => anos.filter(a => a.ano >= 2023).reduce((s, a) => s + (a[k] || 0), 0);
+  const fin = (m.financas || []).at(-1);
+  const sameUF = r => r.uf === m.uf;
+  view.innerHTML = `
+    <div class="crumb"><a href="#/">Mapa</a> › ${esc(m.uf)}</div>
+    <h1>${esc(m.nome)} <span class="pill">${esc(m.uf)}</span></h1>
+    <p class="lede">${esc(m.regiao || "")} · ${nf(row.populacao || m.populacao)} habitantes (Censo 2022)</p>
+    <div class="tiles">
+      <div class="tile"><b>${brl(tot("empenhado"))}</b><span>emendas empenhadas desde 2023</span></div>
+      <div class="tile"><b>${brl(tot("pix"))}</b><span>via Pix (transferência especial)</span></div>
+      <div class="tile"><b>${row.pix_per_capita != null ? "R$ " + nf(row.pix_per_capita, 0) : "—"}</b><span>Pix por habitante</span></div>
+      <div class="tile"><b>${fin ? brl((fin.receita_corrente || 0) + (fin.receita_capital || 0)) : "—"}</b><span>${fin ? "receita total em " + fin.exercicio : "receita (DCA em carga)"}</span></div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Onde fica em relação aos outros municípios</h3>
+        <div class="key"><span><span class="sw" style="background:var(--line)"></span>distribuição dos 5.570 municípios</span><span><span class="sw" style="background:var(--accent)"></span>${esc(m.nome)}</span></div>
+        <div class="dist">${DIST_KEYS.map(k => {
+          const meta = PAINEL.metricas[k], sv = sortedValues(k), v = row[k];
+          const p = v != null ? Math.round(100 * pctBelow(sv, v)) : null;
+          const pu = v != null ? Math.round(100 * pctBelow(sortedValues(k, sameUF), v)) : null;
+          return `<div class="lab">${esc(meta.label)}<small>${distCaption(sv, v, meta.unidade, p, pu, m.uf)}</small></div>${distSvg(sv, v)}`;
+        }).join("")}</div>
+        <p class="note" style="margin-top:.6rem">Posição relativa, não juízo de valor. Fontes e períodos na tabela de indicadores abaixo.</p>
+      </div>
+      <div class="side">
+        <div class="mapbox" id="loc"></div>
+        <div class="card"><h3>Projetos de lei simulados aqui</h3>${simBlock(sims)}</div>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Emendas recebidas por ano</h3>${yearBars(anos)}</div>
+      <div class="card"><h3>Quem enviou (2023+)</h3>${(m.autores || []).length ? `<div class="bars">${barRows(m.autores, r => politicoLink(r, r.nome_autor) + (r.uf ? ` <span class="pill">${esc(r.uf)}</span>` : ""), r => r.empenhado, brl)}</div>` : '<p class="note">Nenhuma emenda desde 2023.</p>'}</div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Para onde foi o dinheiro das emendas</h3>${(m.categorias || []).length ? `<div class="bars">${barRows(m.categorias.slice(0, 8), r => esc(r.categoria), r => r.empenhado, brl)}</div>
+        <p class="note" style="margin-top:.5rem">${m.categorias_fonte === "emendas.nome_funcao" ? "Por função orçamentária declarada na emenda." : "Categoria prática (regras + classificação por IA)."}</p>` : '<p class="note">Sem emendas registradas.</p>'}</div>
+      <div class="card"><h3>Contas do município ${fin ? "(" + fin.exercicio + ")" : ""}</h3>${finBlock(fin)}</div>
+    </div>
+    ${(m.gazetas_shows || []).length ? `<section class="card"><h3>Shows e contratações artísticas no diário oficial</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Termo</th><th></th></tr></thead><tbody>
+      ${m.gazetas_shows.map(g => `<tr><td class="num">${esc(g.data)}</td><td>${esc(g.term)}</td><td><a href="${esc(g.url)}" target="_blank" rel="noopener">abrir diário →</a></td></tr>`).join("")}</tbody></table></div>
+      <p class="note" style="margin-top:.4rem">Menção no diário não prova que o show foi pago com emenda.</p></section>` : ""}
+    <section class="card"><h3>Indicadores e fontes</h3><div class="scroll"><table><thead><tr><th>Indicador</th><th class="r">Valor</th><th>Referência</th><th>Fonte</th></tr></thead><tbody>
+      ${(m.indicadores || []).map(i => `<tr><td>${esc(i.indicador)}</td><td class="r">${nf(i.valor, i.valor % 1 ? 1 : 0)} ${esc(i.unidade || "")}</td><td>${esc(i.referencia)}</td><td>${i.url ? `<a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.fonte)}</a>` : esc(i.fonte)}</td></tr>`).join("")}
+    </tbody></table></div></section>`;
+  const loc = makeMap(document.getElementById("loc"), {height: 420,
+    onHover: (ev, c) => { const r = PAINEL.byCod[c]; if (r) showTip(ev, `<b>${esc(r.nome)}</b><span class="k">${r.uf}</span>`); },
+    onClick: c => { location.hash = "#/m/" + c; }});
+  loc.color(c => c === cod ? "var(--accent)" : PAINEL.byCod[c]?.uf === m.uf ? "var(--hatch)" : "var(--none)").zoomUF(m.uf).select(cod);
+}
+const CRIT_LABEL = {agua: "Água por rede", esgoto: "Esgoto por rede", aps: "Atenção primária (APS)", ideb: "Ideb anos iniciais",
+  favelas: "População em favelas", populacao: "População", arrecadacao: "Arrecadação própria / receita"};
+function simBlock(sims) {
+  if (!sims || !sims.length) return '<p class="note">Sem dados para simular.</p>';
+  return sims.map(s => `<div style="margin-bottom:.8rem"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:baseline">
+    <a href="#/simulador/${s.id}"><b>${esc(s.proposta)}</b></a><span class="tag ${s.resultado}">${SIM_LABEL[s.resultado]}</span></div>
+    <ul class="checks">${Object.entries(s.criterios).map(([k, c]) => `<li><span class="st ${c.status === "atende" ? "a" : c.status === "nao_atende" ? "n" : "s"}">${c.status === "atende" ? "✓" : c.status === "nao_atende" ? "✕" : "?"}</span><span>${esc(CRIT_LABEL[k] || k)}</span><span class="num">${c.valor == null ? "sem dado" : nf(c.valor, Math.abs(c.valor) >= 100 ? 0 : 1)}</span></li>`).join("")}</ul></div>`).join("");
+}
+function yearBars(raw) {
+  if (!raw.length) return '<p class="note">Nenhuma emenda registrada.</p>';
+  const by = Object.fromEntries(raw.map(a => [a.ano, a]));
+  const anos = d3.range(d3.min(raw, a => a.ano), d3.max(raw, a => a.ano) + 1)
+    .map(y => by[y] || {ano: y, empenhado: 0, pix: 0, pago: 0, emendas: 0});
+  const W = 560, H = 190, L = 8, B = 22, T = 14;
+  const max = Math.max(...anos.map(a => a.empenhado || 0), 1);
+  const bw = (W - L * 2) / anos.length;
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const bars = anos.map((a, i) => {
+    const x = L + i * bw + 3, w = Math.max(2, bw - 6);
+    const pix = a.pix || 0, other = Math.max(0, (a.empenhado || 0) - pix);
+    const hOther = (H - T - B) * other / max, hPix = (H - T - B) * pix / max;
+    return `<g class="yb" data-i="${i}"><rect x="${L + i * bw}" y="0" width="${bw}" height="${H}" fill="transparent"/>
+      <rect x="${x}" y="${H - B - hPix}" width="${w}" height="${Math.max(0, hPix - (hOther > 0 ? 1 : 0))}" fill="var(--s2)" rx="${hOther > 0 ? 0 : 3}"/>
+      <rect x="${x}" y="${H - B - hPix - hOther}" width="${w}" height="${Math.max(0, hOther - 1)}" fill="var(--s1)" rx="3"/>
+      <text x="${x + w / 2}" y="${H - 6}" text-anchor="middle">${String(a.ano).slice(2)}</text></g>`;
   }).join("");
-  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMin meet">${bars}</svg></div>`;
+  setTimeout(() => document.querySelectorAll("g.yb").forEach(gEl => {
+    const a = anos[+gEl.dataset.i];
+    gEl.onpointermove = ev => showTip(ev, `<b>${a.ano}</b><span class="k">empenhado</span> <span class="v">${brl(a.empenhado)}</span><br><span class="k">via Pix</span> <span class="v">${brl(a.pix)}</span><br><span class="k">pago</span> <span class="v">${brl(a.pago)}</span>`);
+    gEl.onpointerleave = () => { tip.hidden = true; };
+  }));
+  return `<div class="key"><span><i class="sw" style="background:var(--s1)"></i>outras emendas</span><span><i class="sw" style="background:var(--s2)"></i>Pix</span><span class="note">pico ${brl(max)}</span></div>
+    <div class="chart"><svg viewBox="0 0 ${W} ${H}"><line x1="${L}" x2="${W - L}" y1="${H - B}" y2="${H - B}" stroke="var(--line)"/>${bars}</svg></div>`;
+}
+function finBlock(f) {
+  if (!f) return '<p class="note">As contas anuais (DCA) deste município ainda não foram carregadas. A cobertura cresce a cada dia.</p>';
+  const rec = (f.receita_corrente || 0) + (f.receita_capital || 0);
+  const proprios = (f.iptu || 0) + (f.iss || 0) + (f.itbi || 0);
+  const rows = [
+    {k: "FPM (fundo de participação)", v: f.fpm}, {k: "Impostos próprios (IPTU, ISS, ITBI)", v: proprios},
+    {k: "Outras transferências correntes", v: Math.max(0, (f.transferencias_correntes || 0) - (f.fpm || 0))},
+    {k: "Demais receitas", v: Math.max(0, rec - (f.transferencias_correntes || 0) - proprios)},
+  ];
+  const desp = [
+    {k: "Saúde", v: f.despesa_saude}, {k: "Educação", v: f.despesa_educacao}, {k: "Urbanismo", v: f.despesa_urbanismo},
+    {k: "Saneamento", v: f.despesa_saneamento}, {k: "Cultura", v: f.despesa_cultura},
+  ];
+  return `<p class="note" style="margin-bottom:.4rem">De onde vem a receita (${brl(rec)})</p>
+    <div class="bars">${barRows(rows, r => esc(r.k), r => r.v || 0, v => brl(v) + " · " + nf(100 * v / (rec || 1), 0) + "%")}</div>
+    <p class="note" style="margin:.8rem 0 .4rem">Despesa liquidada por função (total ${brl(f.despesa_total)})</p>
+    <div class="bars">${barRows(desp, r => esc(r.k), r => r.v || 0, brl)}</div>
+    <p class="note" style="margin-top:.5rem">Fonte: SICONFI/DCA ${f.exercicio}. Eventos às vezes são lançados em Turismo, não Cultura.</p>`;
 }
 
-function svgLine(points, {fmt}) {
-  if (!points.length) return '<p class="note">sem série temporal.</p>';
-  const w = 640, h = 180, pad = 28;
-  const xs = points.map((_, i) => pad + i * (w - pad*2) / Math.max(1, points.length - 1));
-  const max = Math.max(...points.map(p => p.v), 1);
-  const ys = points.map(p => h - pad - (p.v / max) * (h - pad*2));
-  const path = xs.map((x, i) => `${i?'L':'M'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
-  const area = `M${xs[0]},${h-pad} ` + xs.map((x,i)=>`L${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ") + ` L${xs[xs.length-1]},${h-pad} Z`;
-  const ticks = points.filter((_,i)=> i % Math.ceil(points.length/6) === 0);
-  return `<div class="chart"><svg viewBox="0 0 ${w} ${h}">
-    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="var(--grid)"/>
-    <path d="${area}" fill="var(--s1)" opacity=".12"/>
-    <path d="${path}" fill="none" stroke="var(--s1)" stroke-width="2"/>
-    ${ticks.map(p=>{const i=points.indexOf(p);return `<text x="${xs[i]}" y="${h-8}" text-anchor="middle">${p.d.slice(5)}</text>`}).join("")}
-    <text x="${pad}" y="14" >pico ${fmt(max)}</text>
-  </svg></div>`;
+// ================================================================ POLÍTICO
+async function viewPolitico(id) {
+  loading("carregando deputado…");
+  let p, bills, gov;
+  try {
+    [p, bills, gov] = await Promise.all([get("/politicos/" + id), get(`/proposicoes?deputado_id=${id}&limit=12`).catch(() => []),
+      get("/indices/governismo?limit=600").catch(() => [])]);
+  } catch (e) { return fail(e, "o deputado"); }
+  if (!p || !p.nome) { view.innerHTML = `<p class="err">Deputado não encontrado. <a href="#/">Voltar</a></p>`; return; }
+  const totEmp = (p.emendas || []).reduce((s, y) => s + (y.pago || 0), 0);
+  const totCeap = (p.ceap || []).reduce((s, y) => s + (y.gasto || 0), 0);
+  const nBills = (p.proposicoes_resumo?.por_tipo || []).reduce((s, x) => s + x.n, 0);
+  const g = p.governismo;
+  const govSorted = gov.map(x => x.governismo).sort((a, b) => a - b);
+  const party = gov.filter(x => x.partido === p.partido).map(x => x.governismo).sort((a, b) => a - b);
+  view.innerHTML = `
+    <div class="crumb"><a href="#/">Mapa</a> › deputados</div>
+    <h1>${esc(p.nome)} <span class="pill">${esc(p.partido || "")} · ${esc(p.uf || "")}</span></h1>
+    <p class="lede">Legislaturas ${esc((p.legislaturas || []).sort().join(", "))}${(p.redes || []).length ? " · " + p.redes.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.rede)}</a>`).join(" · ") : ""}</p>
+    <div class="tiles">
+      <div class="tile"><b>${brl(totEmp)}</b><span>emendas pagas (todas as legislaturas)</span></div>
+      <div class="tile"><b>${brl(totCeap)}</b><span>cota parlamentar (CEAP)</span></div>
+      <div class="tile"><b>${g ? nf(100 * g.governismo, 0) + "%" : "—"}</b><span>alinhamento com a orientação do Governo${g ? ` (${nf(g.votos)} votos)` : ""}</span></div>
+      <div class="tile"><b>${nf(nBills)}</b><span>proposições apresentadas desde 2023</span></div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Para onde foram as emendas (2023+)</h3>${(p.destinos || []).length ? `<div class="bars">${barRows(p.destinos, r => r.codigo_ibge ? `<a href="#/m/${r.codigo_ibge}">${esc(titleCase(r.nome))}</a>` : `<span class="note">${esc(titleCase(r.nome || "não informado"))}</span>`, r => r.empenhado, brl)}</div>
+        ${p.destinos.some(r => !r.codigo_ibge) ? '<p class="note" style="margin-top:.5rem">“Múltiplo” e estados inteiros: a origem (Portal da Transparência) não detalha o município — comum em emendas Pix.</p>' : ""}` : '<p class="note">Nenhuma emenda desde 2023 (ou nome do autor não resolvido).</p>'}</div>
+      <div class="card"><h3>Como vota</h3>${g && govSorted.length ? `<div class="dist" style="grid-template-columns:1fr">
+          <div class="lab">Entre os ${nf(govSorted.length)} deputados com ≥200 votos<small>acima de ${Math.round(100 * pctBelow(govSorted, g.governismo))}% da Câmara${party.length > 2 ? ` · ${Math.round(100 * pctBelow(party, g.governismo))}% do ${esc(p.partido)}` : ""}</small></div>
+          ${distSvg(govSorted.map(x => x * 100), g.governismo * 100)}</div>
+          <p class="note" style="margin-top:.6rem">Concordância do voto (Sim/Não) com a orientação da bancada do Governo em plenário, 2023+. Mede alinhamento, não qualidade.</p>` : '<p class="note">Votos insuficientes para medir alinhamento.</p>'}
+        <h3 style="margin-top:1rem">Emendas pagas por ano</h3><div class="bars">${barRows(p.emendas || [], r => String(r.ano), r => r.pago || 0, brl)}</div></div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>O que propõe</h3>
+        ${(p.proposicoes_resumo?.temas || []).length ? `<div class="bars">${barRows(p.proposicoes_resumo.temas, r => `<a href="#/leis?tema=${encodeURIComponent(r.tema)}&deputado=${id}">${esc(r.tema)}</a>`, r => r.n, v => nf(v))}</div>` : '<p class="note">Sem proposições registradas.</p>'}
+        <p class="note" style="margin-top:.5rem">${(p.proposicoes_resumo?.por_tipo || []).map(t => `${nf(t.n)} ${esc(t.sigla_tipo)}`).join(" · ")}</p></div>
+      <div class="card"><h3>Projetos mais recentes</h3>${billList(bills)}
+        ${bills.length ? `<p style="margin-top:.5rem"><a href="#/leis?deputado=${id}">Todos os projetos →</a></p>` : ""}</div>
+    </div>`;
+}
+function billList(bills) {
+  if (!bills || !bills.length) return '<p class="note">Nenhum projeto encontrado.</p>';
+  return bills.map(b => `<div class="bill"><a class="s" href="#/b/${b.id}">${esc(b.sigla)}</a> <span class="note">${esc((b.data_apresentacao || "").slice(0, 10))}</span>
+    <div class="e">${esc(trim(b.ementa, 220))}</div>
+    <div class="m">${esc(b.status_situacao || "")}${b.status_orgao ? " · " + esc(b.status_orgao) : ""}${b.votacoes ? ` · ${b.votacoes} votação(ões)` : ""}${(b.autores || []).length ? " · " + esc(trim(b.autores.map(titleCase).join(", "), 90)) : ""}</div></div>`).join("");
 }
 
-function svgGroupedBars(groups, {aLabel, bLabel}) {
-  const w = 640, gh = 54, h = groups.length * gh + 24, labelW = 150, valW = 90;
-  const barW = w - labelW - valW;
-  const body = groups.map((g, i) => {
-    const y = i * gh + 20, max = Math.max(g.a, g.b, 1);
-    const aw = Math.max(2, (g.a/max)*barW), bw = Math.max(2, (g.b/max)*barW);
-    return `<text x="0" y="${y+8}">${g.label}</text>
-      <rect x="${labelW}" y="${y}" width="${aw}" height="13" rx="4" fill="var(--s1)"/>
-      <text class="val" x="${labelW+aw+5}" y="${y+11}">${g.fa(g.a)}</text>
-      <rect x="${labelW}" y="${y+17}" width="${bw}" height="13" rx="4" fill="var(--s2)"/>
-      <text class="val" x="${labelW+bw+5}" y="${y+28}">${g.fb(g.b)}</text>`;
-  }).join("");
-  return `<div class="legend"><span><i style="background:var(--s1)"></i>${aLabel}</span><span><i style="background:var(--s2)"></i>${bLabel}</span></div>
-    <div class="chart"><svg viewBox="0 0 ${w} ${h}">${body}</svg></div>`;
+// ================================================================ PROPOSIÇÃO
+async function viewProposicao(id) {
+  loading("carregando projeto…");
+  let b, props;
+  try { [b, props] = await Promise.all([get("/proposicoes/" + id), get("/propostas").catch(() => [])]); }
+  catch (e) { return fail(e, "o projeto"); }
+  const sim = props.find(p => p.proposicao_id === +id);
+  const sigla = `${b.sigla_tipo} ${b.numero}/${b.ano}`;
+  view.innerHTML = `
+    <div class="crumb"><a href="#/leis">Projetos de lei</a> › ${esc(b.sigla_tipo)}</div>
+    <h1>${esc(sigla)}</h1>
+    <p class="lede">${esc(b.ementa)}</p>
+    <p class="note" style="margin-top:.5rem">Apresentado em ${esc((b.data_apresentacao || "").slice(0, 10))} · ${esc(b.status_situacao || "situação não informada")}${b.status_orgao ? " · " + esc(b.status_orgao) : ""}
+      · <a href="${esc(b.url || `https://www.camara.leg.br/propostas-legislativas/${id}`)}" target="_blank" rel="noopener">página na Câmara</a>${b.url_inteiro_teor ? ` · <a href="${esc(b.url_inteiro_teor)}" target="_blank" rel="noopener">inteiro teor</a>` : ""}</p>
+    ${sim ? `<div class="card" style="margin-top:1rem;border-color:var(--accent)"><h3>Simulável</h3><p>Os critérios deste projeto podem ser aplicados aos 5.570 municípios com dados oficiais. <a href="#/simulador/${sim.id}">Abrir no simulador →</a></p></div>` : ""}
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Autores</h3><ul class="checks">${(b.autores || []).map(a => `<li><span></span><span>${a.id_deputado ? `<a href="#/p/${a.id_deputado}">${esc(titleCase(a.nome_autor))}</a>` : esc(a.nome_autor)}</span><span class="note">${esc([a.partido, a.uf].filter(Boolean).join(" · ") || a.tipo_autor || "")}</span></li>`).join("") || "<li>—</li>"}</ul>
+        ${(b.temas || []).length ? `<h3 style="margin-top:1rem">Temas</h3><p>${b.temas.map(t => `<a class="pill" href="#/leis?tema=${encodeURIComponent(t)}">${esc(t)}</a>`).join(" ")}</p>` : ""}
+        ${b.keywords ? `<p class="note" style="margin-top:.6rem">Palavras-chave: ${esc(b.keywords)}</p>` : ""}</div>
+      <div class="card"><h3>Votações nominais</h3>${(b.votacoes || []).length ? `<div class="scroll"><table><thead><tr><th>Data</th><th>Órgão</th><th>Descrição</th><th class="r">Sim</th><th class="r">Não</th></tr></thead><tbody>
+          ${b.votacoes.map(v => `<tr><td class="num">${esc(String(v.data || "").slice(0, 10))}</td><td>${esc(v.sigla_orgao)}</td><td>${esc(trim(v.descricao, 120))}</td><td class="r">${v.votos_sim ?? "—"}</td><td class="r">${v.votos_nao ?? "—"}</td></tr>`).join("")}</tbody></table></div>`
+          : '<p class="note">Nenhuma votação registrada para este projeto.</p>'}
+        ${(b.apensadas || []).length ? `<h3 style="margin-top:1rem">Projetos apensados (${b.apensadas.length})</h3>${b.apensadas.map(a => `<div class="bill" style="padding:.4rem 0"><a class="s" href="#/b/${a.id}">${esc(a.sigla)}</a><div class="e">${esc(trim(a.ementa, 140))}</div></div>`).join("")}` : ""}
+        ${b.id_principal ? `<p style="margin-top:.8rem">Apensado a <a href="#/b/${b.id_principal}">outro projeto →</a></p>` : ""}</div>
+    </div>`;
 }
 
-const VIEWS = {
-  async pix() {
+// ================================================================ LEIS
+async function viewLeis(params) {
+  const q = params.get("q") || "", tema = params.get("tema") || "", tipo = params.get("tipo") || "", dep = params.get("deputado") || "";
+  view.innerHTML = `<h1>Projetos de lei</h1>
+    <p class="lede">Proposições legislativas da Câmara desde 2023 (PL, PLP, PEC, PDL, MPV…), com autores, temas, situação e votações.</p>
+    <form class="filters" id="lf">
+      <input name="q" placeholder="Buscar na ementa (ex.: show, emenda pix, saneamento)…" value="${esc(q)}">
+      <select name="tipo"><option value="">Todos os tipos</option>${["PL","PLP","PEC","PDL","MPV","PLV","PRC","PLN"].map(t => `<option ${t === tipo ? "selected" : ""}>${t}</option>`).join("")}</select>
+      ${tema ? `<span class="chip">tema: ${esc(tema)} <a href="#/leis?${new URLSearchParams({q, tipo, deputado: dep})}">✕</a></span>` : ""}
+      ${dep ? `<span class="chip">autor: <span id="depname">${esc(dep)}</span> <a href="#/leis?${new URLSearchParams({q, tipo, tema})}">✕</a></span>` : ""}
+      <button class="chip" type="submit">Buscar</button>
+    </form>
+    <div class="card" id="lr"><div class="loading">buscando…</div></div>`;
+  document.getElementById("lf").onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    location.hash = "#/leis?" + new URLSearchParams({q: f.get("q"), tipo: f.get("tipo"), tema, deputado: dep});
+  };
+  if (dep) get("/politicos/" + dep).then(p => { const n = document.getElementById("depname"); if (n && p.nome) n.textContent = p.nome; }).catch(() => {});
+  const qs = new URLSearchParams({limit: 60});
+  if (q) qs.set("q", q); if (tema) qs.set("tema", tema); if (tipo) qs.set("sigla_tipo", tipo); if (dep) qs.set("deputado_id", dep);
+  try {
+    const d = await get("/proposicoes?" + qs);
+    document.getElementById("lr").innerHTML = `<p class="note" style="margin-bottom:.3rem">${d.length === 60 ? "60 mais recentes" : nf(d.length) + " projeto(s)"}</p>${billList(d)}`;
+  } catch (e) { document.getElementById("lr").innerHTML = `<p class="err">erro (${esc(e.message)})</p>`; }
+}
+
+// ================================================================ SIMULADOR
+async function viewSimulador(pid) {
+  loading("carregando propostas…");
+  let props;
+  try { props = await get("/propostas"); await Promise.all([geo(), painel()]); } catch (e) { return fail(e, "o simulador"); }
+  pid = pid || props[0].id;
+  const prop = props.find(p => p.id === pid);
+  if (!prop) { view.innerHTML = `<p class="err">Proposta não encontrada. <a href="#/simulador">Ver todas</a></p>`; return; }
+  const variantGroups = prop.variantes || {};
+  const state = {variante: {}, limiar: {}, uf: ""};
+  view.innerHTML = `
+    <div class="crumb"><a href="#/simulador">Simulador</a></div>
+    <div class="tabs2">${props.map(p => `<a class="chip" style="${p.id === pid ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/simulador/${p.id}">${esc(p.titulo)}</a>`).join("")}</div>
+    <h1>${esc(prop.titulo)}</h1>
+    <p class="lede">${esc(prop.ementa)}</p>
+    <p class="note" style="margin-top:.4rem">${esc(prop.autoria)} · apresentado em ${esc(prop.apresentacao)} · <a href="${esc(prop.url)}" target="_blank" rel="noopener">texto oficial</a>${prop.proposicao_id ? ` · <a href="#/b/${prop.proposicao_id}">tramitação</a>` : ""}</p>
+    <div class="sim">
+      <div class="card" id="ctl"><div class="loading">simulando…</div></div>
+      <div>
+        <div class="outcome" id="out"></div>
+        <div class="mapbox" style="margin-top:1rem"><div class="map-ctl"><select id="suf" aria-label="Estado"><option value="">Brasil inteiro</option>${UF_SIGLAS.map(s => `<option>${s}</option>`).join("")}</select></div><div id="smap"></div><div class="legend" id="slegend"></div></div>
+        <div class="grid g2" style="margin-top:1rem">
+          <div class="card"><h3>Quais critérios mais eliminam</h3><div id="elim"></div></div>
+          <div class="card"><h3>Municípios que atendem</h3><div id="oklist"></div></div>
+        </div>
+        <div class="grid g2" style="margin-top:1rem">
+          <div class="card"><h3>O que o projeto exige e não dá para medir com dados abertos</h3><ul class="plain" id="nm"></ul></div>
+          <div class="card"><h3>Notas de método</h3><ul class="plain" id="notes"></ul></div>
+        </div>
+      </div>
+    </div>`;
+  const map = makeMap(document.getElementById("smap"), {height: 560,
+    onHover: (ev, cod) => {
+      const m = data?.byCod[cod]; if (!m) return;
+      const r = evaluate(m);
+      showTip(ev, `<b>${esc(m.nome)} <span class="k">${m.uf}</span></b><span class="tag ${r}">${SIM_LABEL[r]}</span><br>` +
+        crit.map(c => { const v = m.criterios[c.id].valor; const s = status(c, v);
+          return `<span class="k">${s === "atende" ? "✓" : s === "nao_atende" ? "✕" : "?"} ${esc(c.id)}</span> <span class="v">${v == null ? "sem dado" : nf(v, 1)}</span>`; }).join("<br>"));
+    },
+    onClick: cod => { location.hash = "#/m/" + cod; }});
+  document.getElementById("suf").onchange = e => { state.uf = e.target.value; map.zoomUF(state.uf); render(); };
+  let data = null, crit = [];
+  const status = (c, v) => v == null ? "sem_dado" : (c.op === ">=" ? v >= c.atual : c.op === ">" ? v > c.atual : c.op === "<=" ? v <= c.atual : v < c.atual) ? "atende" : "nao_atende";
+  const evaluate = m => {
+    const s = crit.map(c => status(c, m.criterios[c.id].valor));
+    return s.includes("nao_atende") ? "nao_atende" : s.includes("sem_dado") ? "indeterminado" : "atende";
+  };
+  async function load() {
+    const qs = new URLSearchParams(state.variante);
+    const d = await get(`/simulador/${pid}?${qs}`);
+    data = {d, byCod: Object.fromEntries(d.municipios.map(m => [m.cod_ibge, m]))};
+    crit = d.criterios.map(c => {
+      const vals = d.municipios.map(m => m.criterios[c.id].valor).filter(v => v != null).sort((a, b) => a - b);
+      const lo = Math.floor(vals[Math.floor(vals.length * .01)] ?? 0), hi = Math.ceil(vals[Math.floor(vals.length * .99)] ?? 100);
+      const step = c.unidade === "índice" ? 0.1 : (hi - lo) > 2000 ? 100 : 1;
+      return {...c, lo: Math.min(lo, c.limiar_original), hi: Math.max(hi, c.limiar_original), step, atual: state.limiar[c.id] ?? c.limiar_original};
+    });
+    document.getElementById("nm").innerHTML = d.proposta.nao_mensuraveis.map(x => `<li>${esc(x)}</li>`).join("");
+    document.getElementById("notes").innerHTML = d.proposta.notas.map(x => `<li>${esc(x)}</li>`).join("") + `<li>Fontes: ${esc(d.fontes)}</li><li>Dado ausente nunca conta como reprovação: o município fica como “sem dado suficiente”.</li>`;
+    controls();
+    render();
+  }
+  function controls() {
+    const ctl = document.getElementById("ctl");
+    ctl.innerHTML = `<h3>Critérios do texto</h3>
+      ${Object.entries(variantGroups).map(([g, opts]) => `<div style="margin-bottom:.6rem"><div class="note" style="margin-bottom:.25rem">Fonte de ${esc(g)}</div>
+        <div class="seg">${opts.map(o => `<button data-g="${g}" data-o="${o}" class="${(state.variante[g] || data.d.variante[g]) === o ? "on" : ""}">${o === "censo2022" ? "Censo 2022" : o === "sinisa" ? "SINISA 2024" : esc(o)}</button>`).join("")}</div></div>`).join("")}
+      ${crit.map(c => `<div class="crit" data-id="${c.id}">
+        <div class="t">${esc(c.texto)}</div>
+        <div class="row"><span class="note">${esc(c.op)}</span><input type="range" min="${c.lo}" max="${c.hi}" step="${c.step}" value="${c.atual}" aria-label="${esc(c.metrica_label)}"><span class="lv">${fmtUnit(c.atual, c.unidade)}</span></div>
+        <div class="mini"></div><div class="cap"></div></div>`).join("")}
+      <button class="chip" id="reset" style="margin-top:.6rem">Restaurar limites do projeto</button>`;
+    ctl.querySelectorAll(".seg button").forEach(b => b.onclick = async () => { state.variante[b.dataset.g] = b.dataset.o; document.getElementById("ctl").style.opacity = .5; await load(); document.getElementById("ctl").style.opacity = 1; });
+    ctl.querySelectorAll(".crit").forEach(div => {
+      const c = crit.find(x => x.id === div.dataset.id), inp = div.querySelector("input"), lv = div.querySelector(".lv");
+      inp.oninput = () => { c.atual = +inp.value; state.limiar[c.id] = c.atual; lv.textContent = fmtUnit(c.atual, c.unidade); render(); };
+    });
+    document.getElementById("reset").onclick = () => { state.limiar = {}; crit.forEach(c => c.atual = c.limiar_original); controls(); render(); };
+  }
+  function render() {
+    const ms = data.d.municipios.filter(m => !state.uf || m.uf === state.uf);
+    const res = new Map(ms.map(m => [m.cod_ibge, evaluate(m)]));
+    const allRes = new Map(data.d.municipios.map(m => [m.cod_ibge, res.get(m.cod_ibge) || evaluate(m)]));
+    map.color(cod => SIM_COLORS[allRes.get(cod)]);
+    const agg = k => { const xs = ms.filter(m => res.get(m.cod_ibge) === k); return {n: xs.length, pop: xs.reduce((s, m) => s + (m.populacao || 0), 0)}; };
+    const A = agg("atende"), N = agg("nao_atende"), I = agg("indeterminado");
+    const changed = crit.some(c => c.atual !== c.limiar_original);
+    document.getElementById("out").innerHTML = [["atende", A], ["nao_atende", N], ["indeterminado", I]].map(([k, v]) =>
+      `<div class="tile"><b>${nf(v.n)}</b><span><span class="sw ${k === "indeterminado" ? "nd" : ""}" style="${k === "indeterminado" ? "" : "background:" + SIM_COLORS[k]}"></span>${SIM_LABEL[k]} · ${compact(v.pop)} hab.</span></div>`).join("")
+      + (changed ? `<p class="note" style="grid-column:1/-1">Limites alterados em relação ao texto do projeto.</p>` : "");
+    document.getElementById("slegend").innerHTML = `${state.uf || "Brasil"}: ${["atende", "nao_atende", "indeterminado"].map(k => `<span><i class="sw ${k === "indeterminado" ? "nd" : ""}" style="${k === "indeterminado" ? "" : "background:" + SIM_COLORS[k]}"></i>${SIM_LABEL[k]}</span>`).join("")}<span class="note">passe o mouse para ver cada critério</span>`;
+    // per-criterion pass shares (each criterion alone) + the binding one
+    document.querySelectorAll("#ctl .crit").forEach(div => {
+      const c = crit.find(x => x.id === div.dataset.id);
+      let a = 0, n = 0, s = 0;
+      for (const m of ms) { const st = status(c, m.criterios[c.id].valor); st === "atende" ? a++ : st === "nao_atende" ? n++ : s++; }
+      const t = ms.length || 1;
+      div.querySelector(".mini").innerHTML = `<i class="ok" style="width:${100 * a / t}%"></i><i class="no" style="width:${100 * n / t}%"></i><i class="sw nd" style="width:${100 * s / t}%;height:6px;margin:0;border-radius:0"></i>`;
+      div.querySelector(".cap").textContent = `${nf(a)} atendem · ${nf(n)} não · ${nf(s)} sem dado`;
+    });
+    const elim = crit.map(c => ({c, only: ms.filter(m => { // fail ONLY this criterion
+      if (status(c, m.criterios[c.id].valor) !== "nao_atende") return false;
+      return crit.every(o => o === c || status(o, m.criterios[o.id].valor) === "atende");
+    }).length, fail: ms.filter(m => status(c, m.criterios[c.id].valor) === "nao_atende").length}));
+    document.getElementById("elim").innerHTML = `<div class="bars">${barRows(elim.sort((a, b) => b.fail - a.fail), e => esc(e.c.metrica_label), e => e.fail, v => nf(v) + " não atendem")}</div>
+      <p class="note" style="margin-top:.6rem">${elim.filter(e => e.only).map(e => `${nf(e.only)} reprovam só em “${esc(e.c.id)}”`).join(" · ") || "Nenhum município reprova em um único critério."}</p>`;
+    const ok = ms.filter(m => res.get(m.cod_ibge) === "atende").sort((a, b) => b.populacao - a.populacao);
+    const byUF = d3.rollups(ok, v => v.length, m => m.uf).sort((a, b) => b[1] - a[1]);
+    document.getElementById("oklist").innerHTML = ok.length ? `<p class="note" style="margin-bottom:.4rem">${byUF.map(([u, n]) => `${u} ${n}`).join(" · ")}</p>
+      <ol class="rank">${ok.slice(0, 15).map((m, i) => `<li><span class="i">${i + 1}</span><a href="#/m/${m.cod_ibge}">${esc(m.nome)} <span class="pill">${m.uf}</span></a><span class="v">${compact(m.populacao)} hab.</span></li>`).join("")}</ol>
+      ${ok.length > 15 ? `<p class="note" style="margin-top:.4rem">e mais ${nf(ok.length - 15)}.</p>` : ""}` : '<p class="note">Nenhum município atende a todos os critérios com esses limites.</p>';
+  }
+  try { await load(); } catch (e) { document.getElementById("ctl").innerHTML = `<p class="err">erro (${esc(e.message)})</p>`; }
+}
+
+// ================================================================ RANKINGS (classic views)
+const RANKS = {
+  pix: ["Autores de emendas Pix", async () => {
     const d = await get("/emendas/autores?apenas_pix=true&limit=30");
-    const max = d[0].empenhado;
-    return `<h2>Maiores autores de emendas Pix (2023+)</h2>
-      <p class="note">Transferências especiais, por valor empenhado. Senadores dominam — cotas individuais maiores.</p>` +
-      table([
-        {label:"#", get:(r)=>d.indexOf(r)+1},
-        {label:"Autor", get:(r)=>`<b>${r.nome_autor}</b> <span class="pill">${r.uf||"?"}</span>`},
-        {label:"", bar:true, barVal:(r)=>r.empenhado},
-        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
-      ], d, max);
-  },
-  async percapita() {
-    const d = await get("/rankings/pix-per-capita?limit=30");
-    const max = d[0].per_capita;
-    return `<h2>Pix per capita por município</h2>
-      <p class="note">Emenda Pix empenhada ÷ população. Pequenos municípios com muito dinheiro por habitante.</p>` +
-      table([
-        {label:"Município", get:(r)=>`<a href="/explorar.html#m/${r.codigo_ibge||''}">${r.nome}</a> <span class="pill">${r.uf}</span>`},
-        {label:"Pop.", num:true, get:(r)=>r.populacao.toLocaleString("pt-BR")},
-        {label:"", bar:true, barVal:(r)=>r.per_capita},
-        {label:"Por hab.", num:true, get:(r)=>brl(r.per_capita)},
-        {label:"Total", num:true, get:(r)=>brl(r.empenhado)},
-      ], d, max);
-  },
-  async detector() {
+    return `<p class="note" style="margin-bottom:.6rem">Transferências especiais desde 2023, por valor empenhado.</p><div class="bars">${barRows(d, r => politicoLink(r, r.nome_autor) + ` <span class="pill">${esc(r.uf || "?")}</span>`, r => r.empenhado, brl)}</div>`; }],
+  percapita: ["Pix por habitante", async () => {
+    await painel();
+    const d = PAINEL.rows.filter(r => r.pix_per_capita > 0).sort((a, b) => b.pix_per_capita - a.pix_per_capita).slice(0, 30);
+    return `<p class="note" style="margin-bottom:.6rem">Emendas Pix empenhadas desde 2023 ÷ população (Censo 2022). <a href="#/">Ver no mapa →</a></p><div class="bars">${barRows(d, r => `<a href="#/m/${r.cod_ibge}">${esc(r.nome)}</a> <span class="pill">${r.uf}</span>`, r => r.pix_per_capita, v => "R$ " + nf(v))}</div>`; }],
+  detector: ["Detector de shows", async () => {
     const d = await get("/detector/shows?limit=40");
-    const max = d[0].per_capita;
-    return `<h2>Detector de shows</h2>
-      <p class="note">Municípios que receberam Pix <b>e</b> publicaram contratos de show no diário oficial.
-      Pista, não prova — a co-ocorrência não confirma a origem do cachê.</p>` +
-      table([
-        {label:"Município", get:(r)=>`<a href="/explorar.html#m/${r.codigo_ibge}">${r.nome}</a> <span class="pill">${r.uf}</span>`},
-        {label:"Pop.", num:true, get:(r)=>r.populacao.toLocaleString("pt-BR")},
-        {label:"Pix/hab", num:true, get:(r)=>brl(r.per_capita)},
-        {label:"Menções", num:true, get:(r)=>r.mencoes},
-        {label:"Autor ex.", get:(r)=>r.um_autor||"—"},
-      ], d, max);
-  },
-  async categorias() {
+    if (!d.length) return `<p class="note">Ainda sem menções de diário oficial no lake: a fonte (Querido Diário) estava fora do ar nas últimas coletas. O detector volta assim que a coleta tiver sucesso.</p>`;
+    return `<p class="note" style="margin-bottom:.6rem">Municípios que receberam Pix <b>e</b> publicaram contratação de show no diário oficial. Pista, não prova.</p>
+      <div class="scroll"><table><thead><tr><th>Município</th><th class="r">Pop.</th><th class="r">Pix/hab</th><th class="r">Menções</th><th>Um autor</th></tr></thead><tbody>
+      ${d.map(r => `<tr><td><a href="#/m/${r.codigo_ibge}">${esc(r.nome)}</a> <span class="pill">${r.uf}</span></td><td class="r">${nf(r.populacao)}</td><td class="r">R$ ${nf(r.per_capita)}</td><td class="r">${r.mencoes}</td><td>${esc(titleCase(r.um_autor || "—"))}</td></tr>`).join("")}</tbody></table></div>`; }],
+  categorias: ["Para onde vai", async () => {
     const d = await get("/emendas/categorias?apenas_pix=false");
-    const agg = {};
-    for (const r of d) agg[r.categoria] = (agg[r.categoria]||0) + r.empenhado;
-    const rows = Object.entries(agg).map(([categoria,empenhado])=>({categoria,empenhado})).sort((a,b)=>b.empenhado-a.empenhado);
-    return `<h2>Para onde vai o dinheiro das emendas</h2>
-      <p class="note">Categoria prática de cada emenda (camada de enriquecimento: regras + classificação por IA).</p>` +
-      svgHBars(rows, {label:r=>r.categoria, value:r=>r.empenhado, fmt:brl});
-  },
-  async partidos() {
-    const d = await get("/indices/partidos");
-    d.sort((a,b)=>b.governismo_medio-a.governismo_medio);
-    return `<h2>Governismo médio por partido</h2>
-      <p class="note">Concordância média com a orientação da bancada do Governo, por partido (deputados com ≥100 votos). Barra = % de alinhamento.</p>` +
-      svgHBars(d, {label:r=>`${r.partido} (${r.deputados})`, value:r=>r.governismo_medio, pct:true});
-  },
-  async favorecidos() {
+    const agg = {}; for (const r of d) agg[r.categoria] = (agg[r.categoria] || 0) + r.empenhado;
+    const rows = Object.entries(agg).map(([categoria, v]) => ({categoria, v})).sort((a, b) => b.v - a.v);
+    return `<p class="note" style="margin-bottom:.6rem">Categoria prática de cada emenda (regras + IA).</p><div class="bars">${barRows(rows, r => esc(r.categoria), r => r.v, brl)}</div>`; }],
+  partidos: ["Partidos", async () => {
+    const d = (await get("/indices/partidos")).sort((a, b) => b.governismo_medio - a.governismo_medio);
+    return `<p class="note" style="margin-bottom:.6rem">Alinhamento médio com a orientação do Governo, por partido (deputados com ≥100 votos).</p><div class="bars">${barRows(d, r => `${esc(r.partido)} <span class="note">(${r.deputados})</span>`, r => r.governismo_medio * 100, v => nf(v) + "%")}</div>`; }],
+  governismo: ["Governismo", async () => {
+    const d = (await get("/indices/governismo?limit=600")).sort((a, b) => b.governismo - a.governismo);
+    const list = xs => `<div class="bars">${barRows(xs, r => `<a href="#/p/${r.deputado_id}">${esc(r.nome)}</a> <span class="pill">${esc(r.partido || "")}</span>`, r => r.governismo * 100, v => nf(v) + "%")}</div>`;
+    return `<p class="note" style="margin-bottom:.6rem">Concordância com a orientação da bancada do Governo (plenário 2023+, mín. 200 votos).</p>
+      <div class="grid g2"><div><h3>Mais alinhados</h3>${list(d.slice(0, 15))}</div><div><h3>Menos alinhados</h3>${list(d.slice(-15).reverse())}</div></div>`; }],
+  favorecidos: ["Recebedores", async () => {
     const d = await get("/favorecidos?limit=25");
-    return `<h2>Maiores recebedores de emenda (empresas)</h2>
-      <p class="note">Destinatários finais do dinheiro, com atividade econômica (CNAE) quando conhecida. Bancos públicos aparecem como operadores de repasse — não são o destino final.</p>` +
-      table([
-        {label:"Empresa", get:(r)=>`<b>${(r.nome||'').slice(0,34)}</b>`},
-        {label:"Atividade (CNAE)", get:(r)=>`<span style="color:var(--muted)">${(r.atividade||'—').slice(0,42)}</span>`},
-        {label:"Autores", num:true, get:(r)=>r.n_autores},
-        {label:"Recebido", num:true, get:(r)=>brl(r.recebido)},
-      ], d, 1);
-  },
-  async tabelas() {
-    const d = await get("/tabelas");
-    return `<h2>Todas as tabelas (${d.length})</h2>
-      <p class="note">Cada tabela do lake é navegável. Clique para ver uma amostra. Dados brutos, mesma fonte da API pública.</p>` +
-      table([
-        {label:"Tabela", get:(r)=>`<a href="/explorar.html#t/${r.tabela}">${r.tabela}</a>`},
-        {label:"Linhas", num:true, get:(r)=>r.linhas.toLocaleString("pt-BR")},
-        {label:"Colunas", get:(r)=>`<span style="color:var(--muted);font-size:.82rem">${r.colunas.join(", ")}</span>`},
-      ], d, 1);
-  },
-  async governismo() {
-    const d = await get("/indices/governismo?limit=400");
-    d.sort((a,b)=>b.governismo-a.governismo);
-    const top = d.slice(0,15), bottom = d.slice(-15).reverse();
-    const render = (list) => table([
-      {label:"Deputado", get:(r)=>`${r.nome} <span class="pill">${r.partido||''}</span>`},
-      {label:"Alinhamento", num:true, get:(r)=>(r.governismo*100).toFixed(0)+"%"},
-      {label:"Votos", num:true, get:(r)=>r.votos},
-    ], list, 1);
-    return `<h2>Governismo</h2>
-      <p class="note">Concordância com a orientação da bancada do Governo (plenário 2023+, mín. 200 votos).</p>
-      <h3 style="margin:.6rem 0 .3rem;font-size:.95rem;color:var(--muted)">Mais governistas</h3>${render(top)}
-      <h3 style="margin:1rem 0 .3rem;font-size:.95rem;color:var(--muted)">Menos governistas</h3>${render(bottom)}`;
-  },
+    return `<p class="note" style="margin-bottom:.6rem">Destinatários finais de emendas (empresas), com CNAE. Bancos públicos aparecem como operadores de repasse.</p><div class="bars">${barRows(d, r => `${esc(trim(r.nome, 40))} <span class="note">${esc(trim(r.atividade || "", 40))}</span>`, r => r.recebido, brl)}</div>`; }],
+  comparar: ["Comparar deputados", async () => compareForm()],
 };
-
-async function showView(name) {
-  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.view===name));
-  if (name === "compare") return showCompareForm();
-  view.innerHTML = `<div class="loading">carregando…</div>`;
-  try { view.innerHTML = await VIEWS[name](); }
-  catch(e) { view.innerHTML = `<p class="note">erro ao carregar (${e.message}). a API pode estar iniciando — tente de novo.</p>`; }
+async function viewRankings(which) {
+  which = RANKS[which] ? which : "pix";
+  view.innerHTML = `<h1>Rankings</h1><div class="tabs2">${Object.entries(RANKS).map(([k, [lbl]]) => `<a class="chip" style="${k === which ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/rankings/${k}">${lbl}</a>`).join("")}</div><div class="card" id="rk"><div class="loading">carregando…</div></div>`;
+  try { document.getElementById("rk").innerHTML = await RANKS[which][1](); if (which === "comparar") wireCompare(); }
+  catch (e) { document.getElementById("rk").innerHTML = `<p class="err">erro (${esc(e.message)}). Esta tabela pode ainda não ter sido publicada.</p>`; }
 }
-
-function miniSearch(slot) {
-  return `<div class="mini">
-    <input id="cmp-${slot}" placeholder="${slot==='a'?'Primeiro':'Segundo'} deputado…" autocomplete="off">
-    <div id="cmpr-${slot}" class="results" hidden></div></div>`;
+function compareForm() {
+  return `<p class="note" style="margin-bottom:.6rem">Busque dois deputados.</p><div class="grid g2">${["a", "b"].map(s => `<div class="search"><input id="cmp-${s}" placeholder="${s === "a" ? "Primeiro" : "Segundo"} deputado…" autocomplete="off"><div id="cmpr-${s}" class="results" hidden></div></div>`).join("")}</div><div id="cmp-out" style="margin-top:1rem"></div>`;
 }
-
-function showCompareForm(a, b) {
-  view.innerHTML = `<h2>Comparar deputados</h2>
-    <p class="note">Busque dois deputados para comparar emendas, cota parlamentar e alinhamento.</p>
-    <div class="cmp-inputs">${miniSearch('a')}${miniSearch('b')}</div>
-    <div id="cmp-out"></div>`;
-  for (const slot of ['a','b']) {
-    const inp = document.getElementById('cmp-'+slot), res = document.getElementById('cmpr-'+slot);
+function wireCompare() {
+  for (const s of ["a", "b"]) {
+    const inp = document.getElementById("cmp-" + s), res = document.getElementById("cmpr-" + s);
     let t;
-    inp.addEventListener('input', () => {
-      clearTimeout(t); const term = inp.value.trim();
-      if (term.length < 3) { res.hidden = true; return; }
+    inp.oninput = () => { clearTimeout(t); const term = inp.value.trim(); if (term.length < 3) { res.hidden = true; return; }
       t = setTimeout(async () => {
         const d = await get("/busca?q=" + encodeURIComponent(term));
-        res.innerHTML = (d.politicos||[]).filter(p=>p.deputado_id).map(p =>
-          `<a data-id="${p.deputado_id}" data-nome="${p.nome}">${p.nome}<span class="tag">${p.partido||''} ${p.uf||''}</span></a>`).join("")
-          || `<div style="padding:.5rem .8rem;color:var(--muted)">nada</div>`;
+        res.innerHTML = (d.politicos || []).filter(p => p.deputado_id).map(p => `<a data-id="${p.deputado_id}" data-n="${esc(p.nome)}">${esc(p.nome)}<span class="k">${esc(p.partido || "")} ${esc(p.uf || "")}</span></a>`).join("") || `<div class="note" style="padding:.5rem .8rem">nada</div>`;
         res.hidden = false;
-        res.querySelectorAll('a').forEach(el => el.onclick = () => {
-          inp.value = el.dataset.nome; res.hidden = true;
-          inp.dataset.id = el.dataset.id; tryCompare();
-        });
-      }, 250);
-    });
+        res.querySelectorAll("a").forEach(a => a.onclick = () => { inp.value = a.dataset.n; inp.dataset.id = a.dataset.id; res.hidden = true; runCompare(); });
+      }, 250); };
   }
 }
-
-async function tryCompare() {
-  const ia = document.getElementById('cmp-a'), ib = document.getElementById('cmp-b');
-  if (!ia.dataset.id || !ib.dataset.id) return;
-  const out = document.getElementById('cmp-out');
-  out.innerHTML = `<div class="loading">comparando…</div>`;
+async function runCompare() {
+  const a = document.getElementById("cmp-a").dataset.id, b = document.getElementById("cmp-b").dataset.id;
+  if (!a || !b) return;
+  const out = document.getElementById("cmp-out"); out.innerHTML = `<div class="loading">comparando…</div>`;
   try {
-    const d = await get(`/comparar?a=${ia.dataset.id}&b=${ib.dataset.id}`);
-    const A = d.a, B = d.b;
-    const sum = (arr,k)=> (arr||[]).reduce((s,x)=>s+(x[k]||0),0);
-    const gov = async (id) => { try { const g = await get('/indices/governismo?limit=600'); const r = g.find(x=>x.deputado_id===id); return r?r.governismo:0; } catch { return 0; } };
-    const groups = [
-      {label:"Emendas pagas", a:sum(A.emendas,'pago'), b:sum(B.emendas,'pago'), fa:brl, fb:brl},
-      {label:"Cota (CEAP)", a:sum(A.ceap,'gasto'), b:sum(B.ceap,'gasto'), fa:brl, fb:brl},
-      {label:"Redes declaradas", a:(A.redes||[]).length, b:(B.redes||[]).length, fa:String, fb:String},
-    ];
-    out.innerHTML = `<h3 style="margin:.4rem 0">${A.nome} <span class="pill">${A.partido||''} ${A.uf||''}</span> &nbsp;vs&nbsp; ${B.nome} <span class="pill">${B.partido||''} ${B.uf||''}</span></h3>`
-      + svgGroupedBars(groups, {aLabel:A.nome, bLabel:B.nome});
-  } catch(e) { out.innerHTML = `<p class="note">erro (${e.message})</p>`; }
+    const [A, B] = await Promise.all([get("/politicos/" + a), get("/politicos/" + b)]);
+    const sum = (xs, k) => (xs || []).reduce((s, x) => s + (x[k] || 0), 0);
+    const nb = p => (p.proposicoes_resumo?.por_tipo || []).reduce((s, x) => s + x.n, 0);
+    const rows = [["Emendas pagas", sum(A.emendas, "pago"), sum(B.emendas, "pago"), brl], ["Cota parlamentar", sum(A.ceap, "gasto"), sum(B.ceap, "gasto"), brl],
+      ["Alinhamento c/ Governo", (A.governismo?.governismo || 0) * 100, (B.governismo?.governismo || 0) * 100, v => nf(v) + "%"], ["Proposições desde 2023", nb(A), nb(B), v => nf(v)]];
+    out.innerHTML = `<div class="key"><span><i class="sw" style="background:var(--s1)"></i><a href="#/p/${a}">${esc(A.nome)}</a> ${esc(A.partido || "")}</span><span><i class="sw" style="background:var(--s2)"></i><a href="#/p/${b}">${esc(B.nome)}</a> ${esc(B.partido || "")}</span></div>` +
+      rows.map(([l, x, y, f]) => { const mx = Math.max(x, y, 1); return `<div style="margin:.7rem 0"><div class="note">${l}</div>
+        <div class="bar-row"><span class="lab">${esc(A.nome)}</span><span class="track"><div class="fill" style="width:${100 * x / mx}%"></div></span><span class="val">${f(x)}</span></div>
+        <div class="bar-row"><span class="lab">${esc(B.nome)}</span><span class="track"><div class="fill" style="width:${100 * y / mx}%;background:var(--s2)"></div></span><span class="val">${f(y)}</span></div></div>`; }).join("");
+  } catch (e) { out.innerHTML = `<p class="err">erro (${esc(e.message)})</p>`; }
 }
 
-async function showTable(name) {
-  view.innerHTML = `<div class="loading">carregando tabela…</div>`;
+// ================================================================ TABELAS
+async function viewTabelas() {
+  loading();
   try {
-    const d = await get("/tabela/" + name + "?limit=50");
-    const rows = d.amostra || [];
-    if (!rows.length) { view.innerHTML = `<p class="note">tabela vazia. <a href="/explorar.html#tabelas">voltar</a></p>`; return; }
-    const cols = Object.keys(rows[0]);
-    view.innerHTML = `<h2>${name} <span class="pill">amostra de ${rows.length}</span></h2>
-      <p class="note"><a href="/explorar.html#tabelas">← todas as tabelas</a> · <a href="https://data.caramelo.dev.br/latest/${name}.parquet">baixar Parquet completo</a></p>
-      <div class="chart"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td style="max-width:16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c]===null?'—':String(r[c]).slice(0,80)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-  } catch(e) { view.innerHTML = `<p class="note">erro (${e.message}). <a href="/explorar.html#tabelas">voltar</a></p>`; }
+    const d = await get("/tabelas");
+    view.innerHTML = `<h1>Todas as tabelas</h1><p class="lede">Cada tabela do lake é pública em Parquet e consultável com DuckDB direto da URL. <a href="/docs/data.md">Documentação →</a></p>
+      <div class="card" style="margin-top:1rem"><div class="scroll"><table><thead><tr><th>Tabela</th><th class="r">Linhas</th><th>Colunas</th></tr></thead><tbody>
+      ${d.map(r => `<tr><td><a href="#/t/${esc(r.tabela)}">${esc(r.tabela)}</a></td><td class="r">${nf(r.linhas)}</td><td class="note">${esc(r.colunas.join(", "))}</td></tr>`).join("")}</tbody></table></div></div>`;
+  } catch (e) { fail(e, "as tabelas"); }
+}
+async function viewTabela(name) {
+  loading();
+  try {
+    const d = await get("/tabela/" + encodeURIComponent(name) + "?limit=50");
+    const rows = d.amostra || [], cols = rows.length ? Object.keys(rows[0]) : [];
+    view.innerHTML = `<div class="crumb"><a href="#/tabelas">Tabelas</a></div><h1>${esc(name)}</h1>
+      <p class="note" style="margin:.4rem 0 1rem">Amostra de ${rows.length} linhas · <a href="https://data.caramelo.dev.br/latest/${esc(name)}.parquet">baixar Parquet completo</a></p>
+      <div class="card scroll"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+      ${rows.map(r => `<tr>${cols.map(c => `<td style="max-width:16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c] == null ? "—" : esc(String(r[c]).slice(0, 80))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  } catch (e) { fail(e, "a tabela"); }
 }
 
-async function showMunicipio(ibge) {
-  view.innerHTML = `<div class="loading">carregando município…</div>`;
-  try {
-    const m = await get("/municipios/" + ibge);
-    const totalPix = (m.emendas_por_ano||[]).reduce((a,y)=>a+(y.pix||0),0);
-    const totalEmp = (m.emendas_por_ano||[]).reduce((a,y)=>a+(y.empenhado||0),0);
-    const cats = (m.categorias||[]).slice(0,8);
-    const maxCat = cats.length ? cats[0].empenhado : 1;
-    const shows = m.gazetas_shows||[];
-    view.innerHTML = `
-      <h2>${m.nome} <span class="pill">${m.uf}</span></h2>
-      <div class="profile-grid">
-        <div class="stat"><b>${(m.populacao||0).toLocaleString("pt-BR")}</b><span>habitantes</span></div>
-        <div class="stat"><b>${brl(totalEmp)}</b><span>emendas empenhadas</span></div>
-        <div class="stat"><b>${brl(totalPix)}</b><span>via Pix</span></div>
-        <div class="stat"><b>${shows.length}</b><span>menções de show no diário</span></div>
-      </div>
-      <h3 style="font-size:.95rem;color:var(--muted);margin:.8rem 0 .4rem">Para onde foi (categorias)</h3>
-      ${cats.length ? table([
-        {label:"Categoria", get:(r)=>r.categoria},
-        {label:"", bar:true, barVal:(r)=>r.empenhado},
-        {label:"Empenhado", num:true, get:(r)=>brl(r.empenhado)},
-      ], cats, maxCat) : '<p class="note">sem dados de categoria.</p>'}
-      ${shows.length ? `<h3 style="font-size:.95rem;color:var(--muted);margin:1rem 0 .4rem">Contratos de show no diário oficial</h3>
-        <table><thead><tr><th>Data</th><th>Termo</th><th>Fonte</th></tr></thead><tbody>
-        ${shows.map(g=>`<tr><td>${g.data}</td><td>${g.term}</td><td><a href="${g.url}" target="_blank" rel="noopener">diário →</a></td></tr>`).join("")}
-        </tbody></table>` : ""}
-      <p class="note" style="margin-top:1rem"><a href="/explorar.html">← voltar aos rankings</a></p>`;
-  } catch(e) { view.innerHTML = `<p class="note">município não encontrado ou API iniciando (${e.message}). <a href="/explorar.html">voltar</a></p>`; }
-}
+// ================================================================ SEARCH
+(function search() {
+  const q = document.getElementById("q"), box = document.getElementById("results");
+  let t, sel = -1;
+  q.addEventListener("input", () => {
+    clearTimeout(t); const term = q.value.trim(); sel = -1;
+    if (term.length < 3) { box.hidden = true; return; }
+    t = setTimeout(async () => {
+      try {
+        const [d, bills] = await Promise.all([get("/busca?q=" + encodeURIComponent(term)), get("/proposicoes?limit=4&q=" + encodeURIComponent(term)).catch(() => [])]);
+        const items = [];
+        for (const m of d.municipios || []) items.push(`<a href="#/m/${m.codigo_ibge}"><span>${esc(m.nome)}</span><span class="k">município · ${esc(m.uf)}</span></a>`);
+        for (const p of d.politicos || []) if (p.deputado_id) items.push(`<a href="#/p/${p.deputado_id}"><span>${esc(p.nome)}</span><span class="k">deputado · ${esc(p.partido || "")} ${esc(p.uf || "")}</span></a>`);
+        for (const b of bills) items.push(`<a href="#/b/${b.id}"><span>${esc(b.sigla)} — ${esc(trim(b.ementa, 70))}</span><span class="k">projeto</span></a>`);
+        if (bills.length) items.push(`<a href="#/leis?q=${encodeURIComponent(term)}"><span>Ver todos os projetos com “${esc(term)}”</span><span class="k">→</span></a>`);
+        box.innerHTML = items.join("") || `<div class="note" style="padding:.6rem .85rem">nada encontrado</div>`;
+        box.hidden = false;
+      } catch { box.hidden = true; }
+    }, 220);
+  });
+  q.addEventListener("keydown", e => {
+    const links = [...box.querySelectorAll("a")]; if (box.hidden || !links.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + links.length) % links.length; links.forEach((a, i) => a.classList.toggle("sel", i === sel)); }
+    if (e.key === "Enter") { e.preventDefault(); (links[sel] || links[0]).click(); }
+    if (e.key === "Escape") box.hidden = true;
+  });
+  box.addEventListener("click", () => { box.hidden = true; q.value = ""; });
+  document.addEventListener("click", e => { if (!q.parentElement.contains(e.target)) box.hidden = true; });
+})();
 
-async function showPolitico(id) {
-  view.innerHTML = `<div class="loading">carregando político…</div>`;
-  try {
-    const p = await get("/politicos/" + id);
-    const totalEmp = (p.emendas||[]).reduce((a,y)=>a+(y.pago||0),0);
-    const totalCeap = (p.ceap||[]).reduce((a,y)=>a+(y.gasto||0),0);
-    view.innerHTML = `
-      <h2>${p.nome} <span class="pill">${p.partido||''} ${p.uf||''}</span></h2>
-      <div class="profile-grid">
-        <div class="stat"><b>${brl(totalEmp)}</b><span>emendas pagas</span></div>
-        <div class="stat"><b>${brl(totalCeap)}</b><span>cota parlamentar (CEAP)</span></div>
-        <div class="stat"><b>${(p.redes||[]).length}</b><span>redes declaradas</span></div>
-      </div>
-      ${(p.redes||[]).length ? `<p class="note">${p.redes.map(r=>`<a href="${r.url}" target="_blank" rel="noopener">${r.rede}${r.handle?': @'+r.handle:''}</a>`).join(" · ")}</p>`:""}
-      <h3 style="font-size:.95rem;color:var(--muted);margin:.8rem 0 .4rem">Emendas por ano</h3>
-      ${(p.emendas||[]).length ? table([
-        {label:"Ano", get:(r)=>r.ano},
-        {label:"Emendas", num:true, get:(r)=>r.emendas},
-        {label:"Pago", num:true, get:(r)=>brl(r.pago)},
-      ], p.emendas, 1) : '<p class="note">sem emendas registradas.</p>'}
-      <p class="note" style="margin-top:1rem"><a href="/explorar.html">← voltar</a></p>`;
-  } catch(e) { view.innerHTML = `<p class="note">não encontrado (${e.message}). <a href="/explorar.html">voltar</a></p>`; }
-}
-
-// search (debounced)
-let searchTimer;
-const q = document.getElementById("q"), results = document.getElementById("results");
-q.addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  const term = q.value.trim();
-  if (term.length < 3) { results.hidden = true; return; }
-  searchTimer = setTimeout(async () => {
-    try {
-      const d = await get("/busca?q=" + encodeURIComponent(term));
-      const items = [];
-      for (const p of (d.politicos||[])) if (p.deputado_id)
-        items.push(`<a href="/explorar.html#p/${p.deputado_id}">${p.nome}<span class="tag">deputado ${p.partido||''} ${p.uf||''}</span></a>`);
-      for (const m of (d.municipios||[]))
-        items.push(`<a href="/explorar.html#m/${m.codigo_ibge}">${m.nome}<span class="tag">município ${m.uf}</span></a>`);
-      results.innerHTML = items.join("") || `<div style="padding:.6rem .8rem;color:var(--muted)">nada encontrado</div>`;
-      results.hidden = false;
-    } catch { results.hidden = true; }
-  }, 250);
-});
-document.addEventListener("click", (e) => { if (!q.parentElement.contains(e.target)) results.hidden = true; });
-
-document.getElementById("tabs").addEventListener("click", (e) => {
-  if (e.target.dataset.view) { history.replaceState(null,"","/explorar.html"); showView(e.target.dataset.view); }
-});
-
+// ================================================================ ROUTER
 function route() {
-  const h = location.hash.slice(1);
-  results.hidden = true;
-  if (h.startsWith("m/")) return showMunicipio(h.slice(2));
-  if (h.startsWith("p/")) return showPolitico(h.slice(2));
-  if (h.startsWith("t/")) return showTable(h.slice(2));
-  if (h === "compare") return showView("compare");
-  showView("pix");
+  tip.hidden = true;
+  let h = location.hash.replace(/^#\/?/, "");
+  // legacy links: #m/<cod>, #p/<id>, #t/<name>, #compare
+  const [path, qs] = h.split("?");
+  const parts = path.split("/").filter(Boolean);
+  const params = new URLSearchParams(qs || "");
+  const top = parts[0] || "";
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === (["m", "p", "b", "t"].includes(top) ? "__" : top === "compare" ? "rankings" : top)));
+  window.scrollTo(0, 0);
+  if (top === "m") return viewMunicipio(parts[1]);
+  if (top === "p") return viewPolitico(parts[1]);
+  if (top === "b") return viewProposicao(parts[1]);
+  if (top === "t") return viewTabela(parts[1]);
+  if (top === "leis") return viewLeis(params);
+  if (top === "simulador") return viewSimulador(parts[1]);
+  if (top === "rankings") return viewRankings(parts[1]);
+  if (top === "compare") return viewRankings("comparar");
+  if (top === "tabelas") return viewTabelas();
+  return viewHome();
 }
-window.addEventListener("hashchange", route);
+addEventListener("hashchange", route);
 route();
 </script>
 </body>
