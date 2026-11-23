@@ -13,6 +13,11 @@ worker fans these out to registered webhook URLs via a queue with retries.
 | `emenda.paid` | an emenda's paid value increased | `codigo`, `autor`, `municipio`, `uf`, `valor_pago`, `delta` |
 | `rede.added` | a parliamentarian declared a new social account | `nome`, `rede`, `handle`, `url` |
 | `rede.removed` | a declared social account disappeared | `nome`, `rede`, `handle` |
+| `proposicao.apresentada` | a new bill (PL, PLP, PEC, …) appears in the Câmara or Senado | `casa`, `proposicao_id`, `sigla`, `ementa`, `autor`, `partido`, `uf`, `parlamentar_id`, `url` |
+| `proposicao.tramitou` | a bill's situação / tramitação changed | same as above + `situacao`, `situacao_anterior`, `tramitacao` |
+
+For `proposicao.*`, `uf` is the first author's UF, so a `uf` filter follows
+a state's bench.
 
 All events carry `type` and `at` (UTC ISO timestamp of the publish).
 

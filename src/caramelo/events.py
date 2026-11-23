@@ -4,6 +4,8 @@ Event taxonomy v0:
     dataset.updated   any table whose content hash changed
     emenda.created    a codigo_emenda not present in the previous emendas table
     emenda.paid       valor_pago for a codigo_emenda increased
+    proposicao.apresentada  a bill id not present before (Câmara or Senado)
+    proposicao.tramitou     a bill's situação/tramitação changed
 
 Row-level diffing needs the previous Parquet, which is fetched from the
 publish target. The first publish (no previous manifest) is a baseline:
@@ -35,6 +37,62 @@ def _emendas_by_codigo(path: Path) -> dict[str, dict]:
         entry["valor_empenhado"] += r["valor_empenhado"] or 0
         entry["valor_pago"] += r["valor_pago"] or 0
     return out
+
+
+PROPOSICAO_TABLES = {
+    # table: (casa, status columns, author table, author fk, author fields)
+    "proposicoes": ("camara", ("status_situacao", "status_tramitacao"),
+                    "proposicoes_autores", "id_proposicao",
+                    ("nome_autor", "partido", "uf", "id_deputado")),
+    "senado_proposicoes": ("senado", ("situacao_atual",),
+                           "senado_proposicoes_autores", "id_processo",
+                           ("nome_senador", None, "uf", "codigo_senador")),
+}
+
+
+def _previous_table(prev_manifest: dict, name: str, target) -> list[dict] | None:
+    prev_file = (prev_manifest["tables"].get(name) or {}).get("file")
+    prev_bytes = target.get(f"latest/{prev_file}") if prev_file else None
+    if not prev_bytes:
+        return None  # new table: first publish is a baseline, no row events
+    with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
+        tmp.write(prev_bytes)
+        tmp.flush()
+        return pq.read_table(tmp.name).to_pylist()
+
+
+def _proposicao_events(data_dir: Path, name: str, at: str,
+                       prev_rows: list[dict]) -> list[dict]:
+    casa, status_cols, autores_table, fk, (nome, partido, uf, pid) = \
+        PROPOSICAO_TABLES[name]
+    old = {r["id"]: r for r in prev_rows}
+    first_author: dict[int, dict] = {}
+    autores_path = data_dir / f"{autores_table}.parquet"
+    if autores_path.exists():
+        for a in pq.read_table(autores_path).to_pylist():
+            first_author.setdefault(a[fk], a)
+    events = []
+    for r in pq.read_table(data_dir / f"{name}.parquet").to_pylist():
+        a = first_author.get(r["id"], {})
+        base = {
+            "at": at, "casa": casa, "proposicao_id": r["id"],
+            "sigla": f"{r['sigla_tipo']} {r['numero']}/{r['ano']}",
+            "ementa": (r.get("ementa") or "")[:300],
+            "autor": a.get(nome), "partido": a.get(partido) if partido else None,
+            # `uf` = first author's UF, so webhook UF filters work
+            "uf": a.get(uf), "parlamentar_id": a.get(pid), "url": r.get("url"),
+        }
+        prev = old.get(r["id"])
+        if prev is None:
+            events.append({"type": "proposicao.apresentada", **base,
+                           "data_apresentacao": r.get("data_apresentacao")})
+        elif any(r.get(c) != prev.get(c) for c in status_cols):
+            events.append({"type": "proposicao.tramitou", **base,
+                           "situacao": r.get(status_cols[0]),
+                           "situacao_anterior": prev.get(status_cols[0]),
+                           "tramitacao": (r.get(status_cols[1])
+                                          if len(status_cols) > 1 else None)})
+    return events
 
 
 def derive_events(data_dir: Path, changed: list[str], manifest: dict,
@@ -81,6 +139,12 @@ def derive_events(data_dir: Path, changed: list[str], manifest: dict,
                         "nome": r["nome"], "rede": r["rede"],
                         "handle": r["handle"],
                     })
+
+    for name in PROPOSICAO_TABLES:
+        if prev_manifest and name in changed:
+            prev_rows = _previous_table(prev_manifest, name, target)
+            if prev_rows is not None:
+                events.extend(_proposicao_events(data_dir, name, at, prev_rows))
 
     if prev_manifest and "emendas" in changed:
         prev_file = (prev_manifest["tables"].get("emendas") or {}).get("file")

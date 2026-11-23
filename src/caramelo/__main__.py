@@ -24,7 +24,9 @@ def main(argv: list[str] | None = None) -> None:
                                   "votacoes", "municipios", "siconfi", "ceap",
                                   "redes", "media", "x", "favorecidos",
                                   "gazetas", "transferegov", "ceaps",
-                                  "senado-votos", "tse", "trends", "cnpj"])
+                                  "senado-votos", "tse", "trends", "cnpj",
+                                  "indicadores", "financas", "proposicoes",
+                                  "senado-proposicoes"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -133,6 +135,20 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "harvest" and args.source == "cnpj":
         from caramelo.harvesters import cnpj
         cnpj.harvest(args.data_dir)
+    elif args.command == "harvest" and args.source == "indicadores":
+        from caramelo.harvesters import indicadores
+        indicadores.harvest(args.data_dir)
+    elif args.command == "harvest" and args.source == "financas":
+        from caramelo.harvesters import dca
+        dca.harvest(args.data_dir, tuple(args.years) if args.years else None,
+                    int(os.environ.get("CARAMELO_DCA_MAX_ENTES", "1500")))
+    elif args.command == "harvest" and args.source == "proposicoes":
+        from caramelo.harvesters import proposicoes
+        proposicoes.harvest(args.data_dir,
+                            tuple(args.years) if args.years else None)
+    elif args.command == "harvest" and args.source == "senado-proposicoes":
+        from caramelo.harvesters import senado_proposicoes
+        senado_proposicoes.harvest(args.data_dir)
     elif args.command == "resolve" and args.entity == "autores":
         from caramelo.resolution import authors
         authors.resolve(args.data_dir)
@@ -196,6 +212,20 @@ def main(argv: list[str] | None = None) -> None:
         senado_votos.harvest(args.data_dir)
         cnpj.harvest(args.data_dir,
                      int(os.environ.get("CARAMELO_CNPJ_LOOKUPS", "300")))
+        from caramelo.harvesters import (dca, indicadores, proposicoes,
+                                         senado_proposicoes)
+        for name, step in (
+                ("indicadores", lambda: indicadores.harvest(args.data_dir)),
+                ("financas", lambda: dca.harvest(
+                    args.data_dir, None,
+                    int(os.environ.get("CARAMELO_DCA_MAX_ENTES", "1500")))),
+                ("proposicoes", lambda: proposicoes.harvest(args.data_dir)),
+                ("senado-proposicoes",
+                 lambda: senado_proposicoes.harvest(args.data_dir))):
+            try:
+                step()
+            except Exception as exc:  # a new source must not sink run-all
+                print(f"run-all: {name} failed: {exc!r}")
         authors.resolve(args.data_dir)
         from caramelo.enrich import categorias
         if os.environ.get("CARAMELO_AI_TOKEN"):

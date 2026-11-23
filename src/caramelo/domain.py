@@ -298,6 +298,9 @@ BROWSABLE_TABLES = (
     "gazetas", "tse_candidatos", "tse_receitas", "cnpjs", "socios",
     "pix_planos_acao", "pix_planos_trabalho", "pix_finalidades", "pix_metas",
     "emendas_categorias", "autores_crosswalk",
+    "indicadores_municipio", "financas_municipio", "proposicoes",
+    "proposicoes_autores", "proposicoes_temas", "senado_proposicoes",
+    "senado_proposicoes_autores",
 )
 
 
@@ -345,4 +348,174 @@ def busca(lake: Lake, q: str, limit: int = 10) -> dict:
             FROM {lake.table('municipios')}
             WHERE upper(strip_accents(nome)) LIKE strip_accents(?)
             LIMIT ?""", [pattern, limit]),
+    }
+
+
+# ------------------------------------------------------------- simulador
+
+def propostas() -> list[dict]:
+    """Bills whose stated criteria can be simulated against open data."""
+    from caramelo import simulador
+    return [{k: p[k] for k in ("id", "titulo", "ementa", "casa", "autoria",
+                               "apresentacao", "url", "resultado")}
+            | {"criterios": [c["texto"] for c in p["criterios"]],
+               "variantes": {g: list(v) for g, v in p["variantes"].items()}}
+            for p in simulador.PROPOSTAS.values()]
+
+
+def simular(lake: Lake, proposta_id: str, *,
+            variantes: dict[str, str] | None = None,
+            limiares: dict[str, float] | None = None,
+            uf: str | None = None, incluir_municipios: bool = True) -> dict:
+    """Apply one bill's criteria to every município.
+
+    Returns the resolved criteria (with any threshold overrides), aggregate
+    counts (municípios and population per outcome, per criterion) and,
+    optionally, one row per município with each criterion's status and the
+    measured value. Outcomes: `atende` (all criteria met), `nao_atende`
+    (at least one failed), `indeterminado` (none failed, some lack data).
+    """
+    from caramelo import simulador
+    p = simulador.PROPOSTAS.get(proposta_id)
+    if not p:
+        return {}
+    for group, choice in (variantes or {}).items():
+        if choice not in p["variantes"].get(group, {}):
+            raise ValueError(f"variante inválida: {group}={choice}")
+    criterios = simulador.resolve(p, variantes, limiares)
+    cols = ",\n".join(
+        f"{simulador.criterio_sql(c)} AS \"s_{c['id']}\", "
+        f"round(({simulador.METRICAS[c['metrica']][0]})::DOUBLE, 2) "
+        f"AS \"v_{c['id']}\""
+        for c in criterios)
+    status = [f"\"s_{c['id']}\"" for c in criterios]
+    where = "WHERE uf = ?" if uf else ""
+    rows = lake.q(f"""
+        WITH painel AS ({simulador.painel_sql(lake.table)}),
+        av AS (SELECT cod_ibge, nome, uf, populacao_censo2022 AS populacao,
+                      {cols} FROM painel {where})
+        SELECT *,
+               CASE WHEN list_contains([{', '.join(status)}], 'nao_atende')
+                      THEN 'nao_atende'
+                    WHEN list_contains([{', '.join(status)}], 'sem_dado')
+                      THEN 'indeterminado'
+                    ELSE 'atende' END AS resultado
+        FROM av ORDER BY uf, nome""", [uf.upper()] if uf else [])
+
+    def tally(key: str) -> dict:
+        out: dict[str, dict] = {}
+        for r in rows:
+            t = out.setdefault(r[key], {"municipios": 0, "populacao": 0})
+            t["municipios"] += 1
+            t["populacao"] += int(r["populacao"] or 0)
+        return out
+
+    variante = {**p["variante_padrao"], **(variantes or {})}
+    result = {
+        "proposta": {k: p[k] for k in ("id", "titulo", "ementa", "autoria",
+                                       "url", "resultado", "nao_mensuraveis",
+                                       "notas")},
+        "variante": variante,
+        "uf": uf.upper() if uf else None,
+        "criterios": [{k: c[k] for k in ("id", "texto", "metrica",
+                                         "metrica_label", "unidade", "op",
+                                         "limiar", "limiar_original")}
+                      | {"resumo": tally(f"s_{c['id']}")}
+                      for c in criterios],
+        "resumo": tally("resultado"),
+        "fontes": "indicadores_municipio, financas_municipio, municipios "
+                  "(https://caramelo.dev.br/docs/data.md)",
+    }
+    if incluir_municipios:
+        result["municipios"] = [
+            {"cod_ibge": r["cod_ibge"], "nome": r["nome"], "uf": r["uf"],
+             "populacao": r["populacao"], "resultado": r["resultado"],
+             "criterios": {c["id"]: {"status": r[f"s_{c['id']}"],
+                                     "valor": r[f"v_{c['id']}"]}
+                           for c in criterios}}
+            for r in rows]
+    return result
+
+
+def simulacoes_municipio(lake: Lake, codigo_ibge: str) -> list[dict]:
+    """Every simulable bill evaluated for one município."""
+    from caramelo import simulador
+    out = []
+    for pid in simulador.PROPOSTAS:
+        r = simular(lake, pid)
+        m = next((x for x in r["municipios"] if x["cod_ibge"] == codigo_ibge),
+                 None)
+        if m:
+            out.append({"proposta": r["proposta"]["titulo"], "id": pid,
+                        "resultado": m["resultado"],
+                        "criterios": m["criterios"],
+                        "variante": r["variante"]})
+    return out
+
+
+# ------------------------------------------------------------ proposições
+
+def proposicoes(lake: Lake, *, deputado_id: int | None = None,
+                tema: str | None = None, q: str | None = None,
+                sigla_tipo: str | None = None, limit: int = 50) -> list[dict]:
+    """Câmara bills, filterable by author, theme, type or ementa text."""
+    where, params = ["true"], []
+    if deputado_id is not None:
+        where.append(f"""p.id IN (SELECT id_proposicao FROM
+            {lake.table('proposicoes_autores')} WHERE id_deputado = ?)""")
+        params.append(deputado_id)
+    if tema:
+        where.append(f"""p.id IN (SELECT id_proposicao FROM
+            {lake.table('proposicoes_temas')}
+            WHERE strip_accents(lower(tema)) LIKE strip_accents(lower(?)))""")
+        params.append(f"%{tema}%")
+    if q:
+        where.append("strip_accents(lower(coalesce(p.ementa,'') || ' ' || "
+                     "coalesce(p.keywords,''))) LIKE strip_accents(lower(?))")
+        params.append(f"%{q}%")
+    if sigla_tipo:
+        where.append("p.sigla_tipo = ?")
+        params.append(sigla_tipo.upper())
+    params.append(limit)
+    return lake.q(f"""
+        SELECT p.id, p.sigla_tipo || ' ' || p.numero || '/' || p.ano AS sigla,
+               p.ementa, p.data_apresentacao, p.status_situacao,
+               p.status_orgao, p.status_data, p.url,
+               (SELECT list(a.nome_autor ORDER BY a.ordem_assinatura)
+                FROM {lake.table('proposicoes_autores')} a
+                WHERE a.id_proposicao = p.id) AS autores,
+               (SELECT count(*) FROM {lake.table('votacoes')} v
+                WHERE v.proposicao_id = p.id) AS votacoes
+        FROM {lake.table('proposicoes')} p
+        WHERE {' AND '.join(where)}
+        ORDER BY p.data_apresentacao DESC NULLS LAST LIMIT ?""", params)
+
+
+def proposicao(lake: Lake, proposicao_id: int) -> dict:
+    """One Câmara bill: text, authors, themes, attached bills, roll calls."""
+    base = lake.q(f"SELECT * FROM {lake.table('proposicoes')} WHERE id = ?",
+                  [proposicao_id])
+    if not base:
+        return {}
+    return {
+        **base[0],
+        "autores": lake.q(f"""
+            SELECT nome_autor, partido, uf, id_deputado, tipo_autor,
+                   proponente FROM {lake.table('proposicoes_autores')}
+            WHERE id_proposicao = ? ORDER BY ordem_assinatura""",
+            [proposicao_id]),
+        "temas": [r["tema"] for r in lake.q(f"""
+            SELECT tema FROM {lake.table('proposicoes_temas')}
+            WHERE id_proposicao = ? ORDER BY relevancia DESC""",
+            [proposicao_id])],
+        "apensadas": lake.q(f"""
+            SELECT id, sigla_tipo || ' ' || numero || '/' || ano AS sigla,
+                   ementa FROM {lake.table('proposicoes')}
+            WHERE id_principal = ? ORDER BY data_apresentacao""",
+            [proposicao_id]),
+        "votacoes": lake.q(f"""
+            SELECT id, data, sigla_orgao, descricao, aprovacao,
+                   votos_sim, votos_nao, votos_outros
+            FROM {lake.table('votacoes')} WHERE proposicao_id = ?
+            ORDER BY data DESC""", [proposicao_id]),
     }

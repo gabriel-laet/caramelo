@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import ssl
 import time
 from pathlib import Path
 
+import certifi
 import httpx
 
 USER_AGENT = "caramelo/0.1 (+https://github.com/gabriel-laet/caramelo)"
@@ -36,8 +38,24 @@ def get(url: str, *, params: dict | None = None, headers: dict | None = None,
     raise RuntimeError(f"GET {url} failed after {retries + 1} attempts") from last
 
 
+def ssl_with_intermediate(issuer_url: str) -> ssl.SSLContext:
+    """Verifying SSL context for servers that omit their intermediate cert.
+
+    Some gov.br hosts (e.g. download.inep.gov.br) serve only the leaf
+    certificate. Browsers repair that via the AIA "CA Issuers" URL; we do the
+    same explicitly: fetch the intermediate (DER) and add it to the default
+    trust store. Verification stays on — the intermediate must still chain
+    to a trusted root, so a tampered download simply fails the handshake.
+    """
+    der = httpx.get(issuer_url, headers={"User-Agent": USER_AGENT},
+                    timeout=30.0, follow_redirects=True).content
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    ctx.load_verify_locations(cadata=der)
+    return ctx
+
+
 def download(url: str, dest: Path, *, skip_if_exists: bool = True,
-             retries: int = 4) -> Path:
+             retries: int = 4, verify: ssl.SSLContext | bool = True) -> Path:
     if skip_if_exists and dest.exists() and dest.stat().st_size > 0:
         return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -47,7 +65,8 @@ def download(url: str, dest: Path, *, skip_if_exists: bool = True,
     for _ in range(retries + 1):
         try:
             with httpx.stream("GET", url, headers={"User-Agent": USER_AGENT},
-                              timeout=300.0, follow_redirects=True) as resp:
+                              timeout=300.0, follow_redirects=True,
+                              verify=verify) as resp:
                 resp.raise_for_status()
                 with open(tmp, "wb") as fh:
                     for chunk in resp.iter_bytes(chunk_size=1 << 20):

@@ -12,7 +12,9 @@ from __future__ import annotations
 from pathlib import Path
 
 SEED_TABLES = ("posts", "x_users", "media", "senadores_x", "gazetas",
-               "tse_candidatos", "tse_receitas", "trends", "cnpjs", "socios")
+               "tse_candidatos", "tse_receitas", "trends", "cnpjs", "socios",
+               # incremental (financas fills gaps per run) / carry-forward
+               "financas_municipio", "indicadores_municipio")
 STATE_FILES = ("x_cursor.json", "siconfi_cursor.json")
 
 

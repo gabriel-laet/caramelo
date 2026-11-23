@@ -32,6 +32,13 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 | `redes_sociais` | 1.2k | declared accounts on Câmara profiles | daily |
 | `media` | growing | SearchApi.io news snapshots (append-only) | daily, budgeted |
 | `autores_crosswalk` | 1.5k | derived: emenda author -> person resolution | daily |
+| `indicadores_municipio` | ~50k | long format, one row per (município, indicador): IBGE Censo 2022 (water, sewage, favelas, population), SINISA 2024 (water/sewage network), Ministério da Saúde APS coverage (latest month), Inep Ideb 2025 anos iniciais | daily |
+| `financas_municipio` | ~11k | Tesouro SICONFI DCA, one row per (município, exercício): receita corrente/capital, IPTU, ISS, ITBI, FPM, despesa by function (saúde, educação, cultura, difusão cultural, urbanismo, saneamento) | daily, fills gaps incrementally |
+| `proposicoes` | ~27k | Câmara bulk 2023-2026, legislative types only (PL, PLP, PEC, PDL, MPV, PLV, PRC, PLN), current status | daily |
+| `proposicoes_autores` | ~48k | Câmara bulk: authors of each bill (deputies and others) | daily |
+| `proposicoes_temas` | ~60k | Câmara bulk: thematic classification of each bill | daily |
+| `senado_proposicoes` | ~3.4k | Senado `/processo` API: PL, PLP, PEC, PDL, PRS authored by senators of the 57th legislature | daily |
+| `senado_proposicoes_autores` | ~7.7k | (processo, senador) authorship pairs | daily |
 
 ## Key columns and joins
 
@@ -44,6 +51,24 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 - `autores_crosswalk.nome_autor` joins `emendas.nome_autor` and
   `media.nome_autor`; `match` is `exact`, `uf`, `ambiguous` or `none`.
 - Emendas Pix = `emendas.is_transferencia_especial = true`.
+- `indicadores_municipio.cod_ibge` and `financas_municipio.cod_ibge` join
+  `municipios.codigo_ibge`. Every indicator row carries `referencia`
+  (period), `fonte` and `url`. Pivot with
+  `PIVOT indicadores_municipio ON indicador USING first(valor) GROUP BY cod_ibge`.
+- Indicator caveats: `aps_cobertura_pct` is *cobertura potencial* and is not
+  capped at 100; `esgoto_rede_sinisa_pct` exists only where a provider
+  reported (absence is not zero); `favela_*` is 0 where IBGE mapped no
+  favela; Ideb is absent where Inep did not publish (too few SAEB takers).
+- `financas_municipio.despesa_cultura` is function 13 (Cultura) as the
+  município classified it; 0 means no such line was reported. Events are
+  sometimes booked under Turismo (23.695) instead, so treat it as a lower
+  bound for show spending.
+- `proposicoes.id` joins `proposicoes_autores.id_proposicao`,
+  `proposicoes_temas.id_proposicao` and `votacoes.proposicao_id` (when a
+  vote is on a bill); `proposicoes_autores.id_deputado` joins `deputados.id`.
+  `id_principal` points to the bill a proposição is attached (apensada) to.
+- `senado_proposicoes.id` joins `senado_proposicoes_autores.id_processo`;
+  `codigo_senador` joins `senadores.codigo`.
 
 Money columns are BRL floats (`valor_empenhado`, `valor_liquidado`,
 `valor_pago`, `valor_rap_*`). Author names before 2021 are partially

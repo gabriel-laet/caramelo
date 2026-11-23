@@ -131,3 +131,69 @@ def tabela(name: str, limit: int = Query(50, le=200)) -> dict:
          summary="Free-text search across politicians and municípios")
 def busca(q: str, limit: int = Query(10, le=50)) -> dict:
     return domain.busca(lake(), q, limit=limit)
+
+
+def _limiares(raw: str | None) -> dict[str, float]:
+    """'agua=85,ideb=6.5' -> {'agua': 85.0, 'ideb': 6.5}"""
+    out: dict[str, float] = {}
+    for part in filter(None, (raw or "").split(",")):
+        key, _, val = part.partition("=")
+        try:
+            out[key.strip()] = float(val)
+        except ValueError:
+            raise HTTPException(422, f"limiar inválido: {part}")
+    return out
+
+
+@app.get("/propostas", operation_id="propostas",
+         summary="Bills whose stated criteria can be simulated per município")
+def propostas() -> list[dict]:
+    return domain.propostas()
+
+
+@app.get("/simulador/{proposta_id}", operation_id="simulador",
+         summary="Apply a bill's criteria to every município (neutral: "
+                 "atende / não atende / sem dado per criterion)")
+def simulador(proposta_id: str,
+              saneamento: str | None = Query(
+                  None, description="saneamento source: censo2022 | sinisa"),
+              limiares: str | None = Query(
+                  None, description="threshold overrides, e.g. agua=85,ideb=6.5"),
+              uf: str | None = None,
+              municipios: bool = Query(
+                  True, description="include one row per município")) -> dict:
+    variantes = {"saneamento": saneamento} if saneamento else None
+    try:
+        result = domain.simular(lake(), proposta_id, variantes=variantes,
+                                limiares=_limiares(limiares), uf=uf,
+                                incluir_municipios=municipios)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    if not result:
+        raise HTTPException(404, "proposta não encontrada")
+    return result
+
+
+@app.get("/municipios/{codigo_ibge}/propostas",
+         operation_id="municipio_propostas",
+         summary="Every simulable bill evaluated for one município")
+def municipio_propostas(codigo_ibge: str) -> list[dict]:
+    return domain.simulacoes_municipio(lake(), codigo_ibge)
+
+
+@app.get("/proposicoes", operation_id="proposicoes",
+         summary="Câmara bills by author, theme, type or text")
+def proposicoes(deputado_id: int | None = None, tema: str | None = None,
+                q: str | None = None, sigla_tipo: str | None = None,
+                limit: int = Query(50, le=200)) -> list[dict]:
+    return domain.proposicoes(lake(), deputado_id=deputado_id, tema=tema,
+                              q=q, sigla_tipo=sigla_tipo, limit=limit)
+
+
+@app.get("/proposicoes/{proposicao_id}", operation_id="proposicao",
+         summary="One Câmara bill: authors, themes, attached bills, votes")
+def proposicao(proposicao_id: int) -> dict:
+    result = domain.proposicao(lake(), proposicao_id)
+    if not result:
+        raise HTTPException(404, "proposição não encontrada")
+    return result
