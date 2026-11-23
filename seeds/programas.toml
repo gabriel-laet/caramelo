@@ -1,0 +1,23 @@
+# Long-form interview shows for `caramelo harvest youtube` + `entrevistas`.
+#
+# Each show's channel is harvested like a politician's (resumable backfill,
+# free RSS, stats). `titulos` are case-insensitive regexes, tried in order,
+# with named groups `convidado` (guest) and optionally `data` (a date, or
+# just a year). Videos whose title matches none (clips, promos) are left
+# out of `entrevistas`, as are videos shorter than `min_minutos`.
+
+[[programa]]
+slug = "roda-viva"
+nome = "Roda Viva (TV Cultura)"
+canal = "UCNVsZnDXOM4PodYIEgM2e4w"
+desde = 1986
+# Variants seen on the channel:
+#   "Roda Viva | Guest | 11/16/2026"   "Roda Viva Retrô | Guest | 1995"
+#   "Roda Viva Internacional | Guest | 26/01/2017"   "... | Libras"
+#   older uploads without the show name: "Alberto Goldman - 12/09/2005"
+#   (accepted only with a full date, to keep clips out)
+titulos = [
+  '^\s*roda(?:\s+viva)?(?:\s+(?:retr[oô]|internacional|especial))?\s*[|:–-]\s*(?P<convidado>[^|]+?)\s*(?:(?:[|:–-]|\s)\s*(?P<data>\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|(?:19|20)\d{2}))?\s*(?:\|\s*libras\s*)?$',
+  '^\s*(?P<convidado>[^|\d]{3,80}?)\s+[–-]\s+(?P<data>\d{1,2}/\d{1,2}/\d{4})\s*$',
+]
+min_minutos = 40

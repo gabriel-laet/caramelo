@@ -20,7 +20,19 @@ uf = "BR"
 emissora = "pool (Globo, Bandeirantes, Manchete, SBT)"
 data = "1989-12-14"
 participantes = ["Fernando Collor", "Lula"]
-fontes = []
+fontes = ["https://www.youtube.com/watch?v=p3G0bKrnu7Q"]
+status = "verificar"
+
+[[debate]]
+id = "1989-presidente-br-t1-band"
+ano = 1989
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "1989-07-17"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=MDiGbBDpQhg"]
 status = "verificar"
 
 [[debate]]
@@ -44,7 +56,7 @@ uf = "BR"
 emissora = "TV Globo"
 data = "2018-10-04"
 participantes = []
-fontes = []
+fontes = ["https://www.youtube.com/watch?v=epDDSEVnLmI"]
 status = "verificar"
 
 [[debate]]
@@ -56,7 +68,7 @@ uf = "BR"
 emissora = "Band (pool com TV Cultura, Folha, UOL)"
 data = "2022-08-28"
 participantes = []
-fontes = []
+fontes = ["https://www.youtube.com/watch?v=WwdgWl_nmKI"]
 status = "verificar"
 
 [[debate]]
@@ -80,7 +92,7 @@ uf = "BR"
 emissora = "Band (pool)"
 data = "2022-10-16"
 participantes = ["Lula", "Jair Bolsonaro"]
-fontes = []
+fontes = ["https://www.youtube.com/watch?v=iYVk1CeIs60"]
 status = "verificar"
 
 [[debate]]

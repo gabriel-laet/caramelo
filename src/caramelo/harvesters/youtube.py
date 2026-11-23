@@ -158,6 +158,24 @@ def _declared_targets(data_dir: Path) -> list[dict]:
     return out
 
 
+def _who(r: dict) -> tuple:
+    """Identity of a channel owner: a parliamentarian, or (for shows,
+    which have no parlamentar_id) the show's slug."""
+    pid = r["parlamentar_id"]
+    return (r["casa"], pid if pid is not None else r["nome"])
+
+
+def _program_targets(seeds: Path) -> list[dict]:
+    """Long-form shows (seeds/programas.toml): harvested like politicians'
+    channels, with casa="programa" and the show slug as `nome`."""
+    path = seeds / "programas.toml"
+    if not path.exists():
+        return []
+    return [{"casa": "programa", "parlamentar_id": None, "nome": p["slug"],
+             "ref": p["canal"], "url": p["canal"], "source": "programa"}
+            for p in tomllib.loads(path.read_text()).get("programa", [])]
+
+
 def _override_targets(seeds: Path) -> list[dict]:
     path = seeds / "youtube_canais.toml"
     if not path.exists():
@@ -212,22 +230,23 @@ def resolve_channels(data_dir: Path, client: YouTubeClient,
     """Targets -> youtube_canais. Already-resolved channels are carried over
     and only refreshed (stats) in a batch; new refs cost 1 unit each."""
     out_path = data_dir / "youtube_canais.parquet"
-    old = {(r["casa"], r["parlamentar_id"], r["channel_id"]): r
+    old = {(*_who(r), r["channel_id"]): r
            for r in (pq.read_table(out_path).to_pylist()
                      if out_path.exists() else [])}
-    known_refs = {(r["casa"], r["parlamentar_id"]) for r in old.values()}
+    known_refs = {_who(r) for r in old.values()}
 
     # overrides win over declared for the same person
     targets: dict[tuple, dict] = {}
-    for t in _declared_targets(data_dir) + _override_targets(seeds):
-        key = (t["casa"], t["parlamentar_id"])
+    for t in (_declared_targets(data_dir) + _override_targets(seeds)
+              + _program_targets(seeds)):
+        key = _who(t)
         if t["source"] == "override" or key not in targets:
             targets[key] = t
 
     resolved: dict[tuple, dict] = {}
     unresolved = 0
     for key, t in targets.items():
-        if key in known_refs and t["source"] == "declared":
+        if key in known_refs and t["source"] != "override":
             continue  # resolved in a previous run; refreshed below
         kind_val = classify_ref(t["ref"], t["url"])
         if not kind_val:
@@ -257,8 +276,7 @@ def resolve_channels(data_dir: Path, client: YouTubeClient,
             unresolved += 1
             continue
         ch = items[0]
-        resolved[(t["casa"], t["parlamentar_id"], ch["id"])] = _canal_row(
-            t, ch)
+        resolved[(*key, ch["id"])] = _canal_row(t, ch)
 
     # refresh carried-over channels in batches of 50 ids (1 unit each)
     redone = {(k[0], k[1]) for k in resolved}  # e.g. an override replaced it
@@ -486,7 +504,8 @@ def _discover(c: dict, client: YouTubeClient, cursor: dict,
 # --- archive ----------------------------------------------------------------
 
 def archive(data_dir: Path, archive_root: Path, *, limit: int = 200,
-            audio: bool = False, since: str | None = None) -> None:
+            audio: bool = False, since: str | None = None,
+            video_ids: set[str] | None = None) -> None:
     """Pull captions (+ audio with --audio) for videos not yet archived,
     newest first. Runs on the local network (YouTube bot-checks datacenter
     IPs), writing into the NAS archive."""
@@ -499,6 +518,8 @@ def archive(data_dir: Path, archive_root: Path, *, limit: int = 200,
         if done + failed >= limit:
             break
         if since and (v["published_at"] or "") < since:
+            continue
+        if video_ids is not None and v["video_id"] not in video_ids:
             continue
         dest = arc.youtube_dir(archive_root, v["channel_id"], v["video_id"])
         if (dest / "media.info.json").exists() and (

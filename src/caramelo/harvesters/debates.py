@@ -81,3 +81,71 @@ def archive(archive_root: Path, seeds: Path = SEEDS,
                 print(f"debates-archive: {d['debate_id']}[{n}]: {res['error']}")
     print(f"debates-archive: {ok} recordings ok, {failed} failed -> "
           f"{archive_root / 'debates'}")
+
+
+# --- link discovery ---------------------------------------------------------
+
+def _search(query: str, n: int) -> list[dict]:
+    """YouTube search through yt-dlp: no API key, no quota."""
+    import json
+    import subprocess
+
+    from caramelo.archive import _ytdlp_base
+    proc = subprocess.run(
+        _ytdlp_base() + ["--flat-playlist", "--dump-json",
+                         f"ytsearch{n}:{query}"],
+        capture_output=True, text=True)
+    return [json.loads(line) for line in proc.stdout.splitlines() if line]
+
+
+def _score(d: dict, r: dict) -> int:
+    import unicodedata
+
+    def norm(s: str) -> str:
+        return unicodedata.normalize("NFKD", s or "").encode(
+            "ascii", "ignore").decode().lower()
+    title, channel = norm(r.get("title")), norm(r.get("channel"))
+    broadcaster = norm(d["emissora"] or "").split(" ")[0].strip("(")
+    day, month = ((d["data"][8:10], d["data"][5:7]) if d["data"]
+                  else ("", ""))
+    score = 0
+    score += 3 * (str(d["ano"]) in title)
+    score += 2 * bool(broadcaster and (broadcaster in title
+                                      or broadcaster in channel))
+    score += 2 * bool(d["turno"] and (f"{d['turno']}o turno" in title
+                                      or f"{d['turno']}º turno" in (r.get("title") or "").lower()
+                                      or ("segundo" if d["turno"] == 2 else "primeiro") in title))
+    score += 2 * any(w in title for w in ("completo", "integra", "na integra"))
+    score += 1 * bool(day and f"{day}/{month}" in title)
+    score -= 3 * any(w in title for w in ("melhores momentos", "resumo",
+                                          "analise", "trecho", "corte"))
+    return score
+
+
+def discover(seeds: Path = SEEDS, per_query: int = 10, min_minutes: int = 60,
+             keep: int = 3) -> list[dict]:
+    """Propose recordings for debates that have no `fontes` yet. Only
+    full-length results (>= min_minutes) are kept; candidates are ranked
+    for a human to approve into debates.toml — never written there."""
+    out = []
+    for d in load_seed(seeds):
+        if d["fontes"]:
+            continue
+        turno = f"{d['turno']}º turno" if d["turno"] else ""
+        broadcaster = (d["emissora"] or "").split("(")[0].strip()
+        query = (f"debate {d['cargo']} {d['ano']} {turno} {broadcaster} "
+                 f"completo").replace("  ", " ")
+        seen, cands = set(), []
+        for r in _search(query, per_query):
+            vid = r.get("id")
+            if vid in seen or (r.get("duration") or 0) < 60 * min_minutes:
+                continue
+            seen.add(vid)
+            cands.append({"url": f"https://www.youtube.com/watch?v={vid}",
+                          "title": r.get("title"), "channel": r.get("channel"),
+                          "minutes": round((r.get("duration") or 0) / 60),
+                          "score": _score(d, r)})
+        cands.sort(key=lambda c: -c["score"])
+        out.append({"debate_id": d["debate_id"], "query": query,
+                    "candidatos": cands[:keep]})
+    return out

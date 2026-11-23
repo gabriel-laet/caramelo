@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> None:
                                   "indicadores", "financas", "proposicoes",
                                   "senado-proposicoes", "youtube",
                                   "instagram", "debates", "manchetes",
-                                  "gdelt"])
+                                  "gdelt", "entrevistas"])
     harvest.add_argument("--years", type=int, nargs="+", default=None,
                          help="years for bulk sources (default: 2023-2026)")
     harvest.add_argument("--exercicio", type=int, default=2025,
@@ -75,7 +75,8 @@ def main(argv: list[str] | None = None) -> None:
 
     arch = sub.add_parser("archive", help="download media/captions into the "
                           "local archive (run on the local network)")
-    arch.add_argument("platform", choices=["youtube", "instagram", "debates"])
+    arch.add_argument("platform", choices=["youtube", "instagram", "debates",
+                                           "entrevistas"])
     arch.add_argument("--limit", type=int, default=200,
                       help="max items to fetch this run")
     arch.add_argument("--audio", action="store_true",
@@ -84,6 +85,11 @@ def main(argv: list[str] | None = None) -> None:
                       help="only items published on/after this date")
     arch.add_argument("--only", default=None,
                       help="debates: a single debate id")
+
+    disc = sub.add_parser("discover", help="propose recordings for curated "
+                          "seeds (yt-dlp search, no API quota)")
+    disc.add_argument("what", choices=["debates"])
+    disc.add_argument("--min-minutes", type=int, default=60)
 
     tr = sub.add_parser("transcribe", help="captions -> segments, optional "
                         "Whisper on archived audio, compile transcricoes")
@@ -214,6 +220,23 @@ def main(argv: list[str] | None = None) -> None:
                                     step_days=args.step_days,
                                     max_fetches=args.max_fetches,
                                     outlets=args.outlets)
+    elif args.command == "harvest" and args.source == "entrevistas":
+        from caramelo.harvesters import programas
+        programas.build(args.data_dir)
+    elif args.command == "discover":
+        import json as _json
+
+        from caramelo.harvesters import debates
+        found = debates.discover(min_minutes=args.min_minutes)
+        out = args.data_dir / "debates_candidatos.json"
+        out.write_text(_json.dumps(found, ensure_ascii=False, indent=1))
+        for d in found:
+            print(f"\n{d['debate_id']}  (query: {d['query']})")
+            for c in d["candidatos"] or [{"title": "-- no full-length result"}]:
+                print(f"  [{c.get('score', '')}] {c.get('minutes', '')}min "
+                      f"{c.get('channel', '')} | {c['title']} | "
+                      f"{c.get('url', '')}")
+        print(f"\ncandidates -> {out} (approve into seeds/debates.toml)")
     elif args.command == "harvest" and args.source == "gdelt":
         from caramelo.harvesters import zeitgeist
         zeitgeist.harvest_gdelt(args.data_dir)
@@ -224,6 +247,15 @@ def main(argv: list[str] | None = None) -> None:
             from caramelo.harvesters import youtube
             youtube.archive(args.data_dir, root, limit=args.limit,
                             audio=args.audio, since=args.since)
+        elif args.platform == "entrevistas":
+            import pyarrow.parquet as _pq
+
+            from caramelo.harvesters import youtube
+            ids = {r["video_id"] for r in _pq.read_table(
+                args.data_dir / "entrevistas.parquet",
+                columns=["video_id"]).to_pylist()}
+            youtube.archive(args.data_dir, root, limit=args.limit, audio=True,
+                            since=args.since, video_ids=ids)
         elif args.platform == "instagram":
             from caramelo.harvesters import instagram
             instagram.archive(args.data_dir, root, limit=args.limit,
@@ -352,7 +384,8 @@ def main(argv: list[str] | None = None) -> None:
                 ("youtube", lambda: _if_env(
                     "CARAMELO_YOUTUBE_KEY", "youtube", args.data_dir)),
                 ("instagram", lambda: _if_env(
-                    "CARAMELO_IG_TOKEN", "instagram", args.data_dir))):
+                    "CARAMELO_IG_TOKEN", "instagram", args.data_dir)),
+                ("entrevistas", lambda: _entrevistas(args.data_dir))):
             try:
                 step()
             except Exception as exc:  # one source must not sink run-all
@@ -383,6 +416,12 @@ def main(argv: list[str] | None = None) -> None:
 def _debates(data_dir: Path) -> None:
     from caramelo.harvesters import debates
     debates.harvest(data_dir)
+
+
+def _entrevistas(data_dir: Path) -> None:
+    if (data_dir / "youtube_videos.parquet").exists():
+        from caramelo.harvesters import programas
+        programas.build(data_dir)
 
 
 def _if_env(var: str, module: str, data_dir: Path) -> None:
