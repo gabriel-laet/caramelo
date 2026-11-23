@@ -12,6 +12,7 @@
     --text: #141413; --text-2: #52514e; --muted: #7c7b76;
     --accent: #b06a1e; --accent-soft: #f6e7d4;
     --s1: #2a78d6; --s2: #eb6834;
+    --cam: #1d7a46; --cam-soft: #e3f2e9; --sen: #2c55b8; --sen-soft: #e4ebf9;
     --none: #e4e3df; --hatch: #c9c7c0;
     --q1:#cde2fb; --q2:#9ec5f4; --q3:#6da7ec; --q4:#3987e5; --q5:#256abf; --q6:#184f95; --q7:#0d366b;
     --radius: 12px;
@@ -23,6 +24,8 @@
       --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e86;
       --accent: #e0a15a; --accent-soft: #3a2a17;
       --s1: #3987e5; --s2: #d95926;
+    --cam: #6cc792; --cam-soft: #16301f; --sen: #8aa9f0; --sen-soft: #1b2440;
+      --cam: #6cc792; --cam-soft: #16301f; --sen: #8aa9f0; --sen-soft: #1b2440;
       --none: #2e2e2b; --hatch: #4a4a45;
       --q1:#0d366b; --q2:#184f95; --q3:#256abf; --q4:#3987e5; --q5:#6da7ec; --q6:#9ec5f4; --q7:#cde2fb;
     }
@@ -139,6 +142,10 @@
   .bar-row .track { height: 10px; }
   .bar-row .fill { height: 10px; border-radius: 0 4px 4px 0; background: var(--s1); min-width: 2px; }
   .bar-row .val { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: .82rem; white-space: nowrap; }
+  td .track { display: block; height: 10px; min-width: 4rem; }
+  td .fill { height: 10px; border-radius: 0 4px 4px 0; background: var(--s1); min-width: 2px; }
+  td.rank, td.rank + td { white-space: nowrap; }
+  .rkt td { vertical-align: middle; }
   .dist { display: grid; grid-template-columns: minmax(9rem, 34%) 1fr; gap: .4rem 1rem; align-items: center; }
   .dist .lab { font-size: .86rem; }
   .dist .lab small { display: block; color: var(--muted); font-size: .75rem; }
@@ -196,6 +203,25 @@
   .filters { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
   .filters input, .filters select { border: 1px solid var(--line); background: var(--surface-2); color: var(--text); border-radius: 999px; padding: .4rem .8rem; font: inherit; font-size: .88rem; }
   .filters input { flex: 1 1 16rem; }
+  .casa { display: inline-block; padding: .02rem .45rem; border-radius: 999px; font-size: .68rem; font-weight: 650;
+          letter-spacing: .02em; vertical-align: .08em; margin-left: .3rem; white-space: nowrap;
+          background: var(--surface-2); color: var(--text-2); }
+  .casa.camara { background: var(--cam-soft); color: var(--cam); }
+  .casa.senado { background: var(--sen-soft); color: var(--sen); }
+  h1 .casa { font-size: .8rem; vertical-align: .3em; }
+  .rk-nav { display: grid; gap: .5rem; margin: 1rem 0; }
+  .rk-nav .g { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
+  .rk-nav .g > b { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); min-width: 9.5rem; }
+  .rk-nav .chip.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: transparent; }
+  .rk-nav .g.camara > b { color: var(--cam); } .rk-nav .g.senado > b { color: var(--sen); }
+  td.rank { color: var(--muted); width: 2.2rem; font-variant-numeric: tabular-nums; }
+  .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .7rem; }
+  .tcard { display: block; border: 1px solid var(--line); border-radius: 10px; padding: .7rem .85rem; color: var(--text); background: var(--surface); }
+  .tcard:hover { border-color: var(--accent); text-decoration: none; }
+  .tcard code { font-weight: 650; font-size: .88rem; }
+  .tcard p { color: var(--text-2); font-size: .83rem; margin: .25rem 0 .35rem; line-height: 1.35; }
+  .tcard small { color: var(--muted); font-size: .75rem; }
+  pre.sql { background: var(--surface-2); border-radius: 8px; padding: .7rem .85rem; overflow-x: auto; font-size: .8rem; margin: 0; }
   .tabs2 { display: flex; gap: .3rem; flex-wrap: wrap; margin: 1rem 0; }
   footer { max-width: 82rem; margin: 0 auto; padding: 1.5rem 16px 2.5rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); }
   @media (prefers-reduced-motion: no-preference) { .mapbox g.zoom { transition: transform .45s ease; } }
@@ -212,7 +238,7 @@
     <a href="#/tabelas" data-r="tabelas">Tabelas</a>
   </nav>
   <div class="search">
-    <input id="q" type="search" placeholder="Município, deputado ou projeto (ex.: Birigui, Kataguiri, show)…" autocomplete="off" aria-label="Buscar">
+    <input id="q" type="search" placeholder="Município, deputado, senador ou projeto (ex.: Birigui, Kataguiri, show)…" autocomplete="off" aria-label="Buscar">
     <div id="results" class="results" hidden></div>
   </div>
 </div></div>
@@ -492,7 +518,7 @@ async function homeCards() {
     const a = s.resumo.atende || {municipios: 0, populacao: 0};
     const semDados = !s.resumo.atende && !s.resumo.nao_atende; // indicators not published yet
     cards.push(`<div class="card"><h3>Simulador de propostas</h3>
-      ${semDados ? `<p>Os indicadores municipais usados pelos critérios do <b>PL 5.870/2026</b> ainda não foram publicados; a simulação aparece depois da próxima coleta diária.</p>` : `<p><b class="num" style="font-size:1.6rem">${nf(a.municipios)}</b> municípios (${compact(a.populacao)} de pessoas) atenderiam aos requisitos sociais do <b>PL 5.870/2026</b> para contratar shows com dinheiro público.</p>`}
+      ${semDados ? `<p>Os indicadores municipais usados pelos critérios do <b>PL 5.870/2026</b> ainda não foram publicados; a simulação aparece depois da próxima coleta diária.</p>` : (a.municipios || !s.resumo.indeterminado ? `<p><b class="num" style="font-size:1.6rem">${nf(a.municipios)}</b> municípios (${compact(a.populacao)} de pessoas) atenderiam aos requisitos sociais do <b>PL 5.870/2026</b> para contratar shows com dinheiro público.</p>` : `<p>Nenhum município pode ser confirmado como apto pelos requisitos sociais do <b>PL 5.870/2026</b>: <b class="num">${nf(s.resumo.indeterminado.municipios)}</b> atendem a todos os critérios com dado, mas falta dado em algum critério. Os demais (${nf(s.resumo.nao_atende?.municipios || 0)}) não atendem a ao menos um.</p>`)}
       <p class="note" style="margin-top:.4rem">${p.length} propostas simuláveis · critérios do próprio texto, limites ajustáveis.</p>
       <p style="margin-top:.5rem"><a href="#/simulador">Explorar o simulador →</a></p></div>`);
   } catch {}
@@ -502,17 +528,30 @@ async function homeCards() {
       <p style="margin-top:.5rem"><a href="#/leis">Buscar projetos →</a></p></div>`);
   } catch {}
   try {
-    const d = await get("/emendas/autores?apenas_pix=true&limit=5");
-    cards.push(`<div class="card"><h3>Quem mais enviou emendas Pix (2023+)</h3><div class="bars">${barRows(d, r => politicoLink(r, r.nome_autor), r => r.empenhado, brl)}</div>
+    const [dc, ds] = await Promise.all([get("/emendas/autores?apenas_pix=true&casa=camara&limit=4"), get("/emendas/autores?apenas_pix=true&casa=senado&limit=4")]);
+    cards.push(`<div class="card"><h3>Quem mais enviou emendas Pix (2023+)</h3>
+      <p class="note" style="margin:.2rem 0 .3rem">Deputados</p><div class="bars">${barRows(dc, r => politicoLink(r, r.nome_autor), r => r.empenhado, brl)}</div>
+      <p class="note" style="margin:.6rem 0 .3rem">Senadores</p><div class="bars">${barRows(ds, r => politicoLink(r, r.nome_autor), r => r.empenhado, brl)}</div>
       <p style="margin-top:.6rem"><a href="#/rankings">Mais rankings →</a></p></div>`);
   } catch {}
   host.innerHTML = cards.join("");
 }
 const trim = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+// Câmara and Senado are kept apart everywhere: every politician carries a
+// house badge and links to that house's profile (#/p = deputado, #/s = senador).
+const CASA = {camara: "Câmara", senado: "Senado", bancada: "Bancada", comissao: "Comissão", relator: "Relator"};
+const LEG_ATUAL = 57;
+const casaPill = c => c ? `<span class="casa ${esc(c)}">${esc(CASA[c] || c)}</span>` : "";
+function politicoHref(r) {
+  if (r.casa === "senado" && r.senador_id) return "#/s/" + r.senador_id;
+  if (r.casa === "camara" && r.deputado_id) return "#/p/" + r.deputado_id;
+  if (r.deputado_id) return "#/p/" + r.deputado_id;
+  if (r.senador_id) return "#/s/" + r.senador_id;
+  return null;
+}
 function politicoLink(r, nome) {
-  const n = esc(titleCase(nome));
-  if (r.deputado_id) return `<a href="#/p/${r.deputado_id}">${n}</a>`;
-  return n;
+  const n = esc(titleCase(nome)), href = politicoHref(r);
+  return (href ? `<a href="${href}">${n}</a>` : n) + casaPill(r.casa);
 }
 function barRows(rows, label, value, fmt) {
   const max = Math.max(...rows.map(value), 1);
@@ -676,17 +715,17 @@ async function viewPolitico(id) {
   const govSorted = gov.map(x => x.governismo).sort((a, b) => a - b);
   const party = gov.filter(x => x.partido === p.partido).map(x => x.governismo).sort((a, b) => a - b);
   view.innerHTML = `
-    <div class="crumb"><a href="#/">Mapa</a> › deputados</div>
-    <h1>${esc(p.nome)} <span class="pill">${esc(p.partido || "")} · ${esc(p.uf || "")}</span></h1>
-    <p class="lede">Legislaturas ${esc((p.legislaturas || []).sort().join(", "))}${(p.redes || []).length ? " · " + p.redes.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.rede)}</a>`).join(" · ") : ""}</p>
+    <div class="crumb"><a href="#/rankings/camara_emendas">Câmara dos Deputados</a> › deputados</div>
+    <h1>${esc(p.nome)}${casaPill("camara")} <span class="pill">${esc(p.partido || "")} · ${esc(p.uf || "")}</span></h1>
+    <p class="lede">${(p.legislaturas || []).includes(LEG_ATUAL) ? "Deputado(a) federal" : "Ex-deputado(a) federal"} · legislaturas ${esc((p.legislaturas || []).sort().join(", "))}${p.senador_id ? ` · <a href="#/s/${p.senador_id}">também tem mandato no Senado →</a>` : ""}${(p.redes || []).length ? " · " + p.redes.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.rede)}</a>`).join(" · ") : ""}</p>
     <div class="tiles">
-      <div class="tile"><b>${brl(totEmp)}</b><span>emendas pagas (todas as legislaturas)</span></div>
+      <div class="tile"><b>${brl(totEmp)}</b><span>emendas pagas como deputado(a)</span></div>
       <div class="tile"><b>${brl(totCeap)}</b><span>cota parlamentar (CEAP)</span></div>
       <div class="tile"><b>${g ? nf(100 * g.governismo, 0) + "%" : "—"}</b><span>alinhamento com a orientação do Governo${g ? ` (${nf(g.votos)} votos)` : ""}</span></div>
       <div class="tile"><b>${nf(nBills)}</b><span>proposições apresentadas desde 2023</span></div>
     </div>
     <div class="grid g2" style="margin-top:1rem">
-      <div class="card"><h3>Para onde foram as emendas (2023+)</h3>${(p.destinos || []).length ? `<div class="bars">${barRows(p.destinos, r => r.codigo_ibge ? `<a href="#/m/${r.codigo_ibge}">${esc(titleCase(r.nome))}</a>` : `<span class="note">${esc(titleCase(r.nome || "não informado"))}</span>`, r => r.empenhado, brl)}</div>
+      <div class="card"><h3>Para onde foram as emendas como deputado(a) (2023+)</h3>${(p.destinos || []).length ? `<div class="bars">${barRows(p.destinos, r => r.codigo_ibge ? `<a href="#/m/${r.codigo_ibge}">${esc(titleCase(r.nome))}</a>` : `<span class="note">${esc(titleCase(r.nome || "não informado"))}</span>`, r => r.empenhado, brl)}</div>
         ${p.destinos.some(r => !r.codigo_ibge) ? '<p class="note" style="margin-top:.5rem">Sem link: transferências a governos estaduais, ou emendas que a fonte registra como “Múltiplo” ou estado inteiro, sem município.</p>' : ""}` : '<p class="note">Nenhuma emenda desde 2023 (ou nome do autor não resolvido).</p>'}</div>
       <div class="card"><h3>Como vota</h3>${g && govSorted.length ? `<div class="dist" style="grid-template-columns:1fr">
           <div class="lab">Entre os ${nf(govSorted.length)} deputados com ≥200 votos<small>acima de ${Math.round(100 * pctBelow(govSorted, g.governismo))}% da Câmara${party.length > 2 ? ` · ${Math.round(100 * pctBelow(party, g.governismo))}% do ${esc(p.partido)}` : ""}</small></div>
@@ -700,6 +739,40 @@ async function viewPolitico(id) {
         <p class="note" style="margin-top:.5rem">${(p.proposicoes_resumo?.por_tipo || []).map(t => `${nf(t.n)} ${esc(t.sigla_tipo)}`).join(" · ")}</p></div>
       <div class="card"><h3>Projetos mais recentes</h3>${billList(bills)}
         ${bills.length ? `<p style="margin-top:.5rem"><a href="#/leis?deputado=${id}">Todos os projetos →</a></p>` : ""}</div>
+    </div>`;
+}
+async function viewSenador(id) {
+  loading("carregando senador…");
+  let p;
+  try { p = await get("/senadores/" + id); } catch (e) { return fail(e, "o senador"); }
+  if (!p || !p.nome) { view.innerHTML = `<p class="err">Senador não encontrado. <a href="#/">Voltar</a></p>`; return; }
+  const totEmp = (p.emendas || []).reduce((s, y) => s + (y.pago || 0), 0);
+  const totCeaps = (p.ceaps || []).filter(y => y.ano >= 2023).reduce((s, y) => s + (y.gasto || 0), 0);
+  const nBills = (p.proposicoes_resumo?.por_tipo || []).reduce((s, x) => s + x.n, 0);
+  const votos = p.votos || [], nv = votos.reduce((s, x) => s + x.n, 0);
+  const presentes = votos.filter(v => v.tipo !== "Ausente ou licenciado").reduce((s, x) => s + x.n, 0);
+  const atual = (p.legislaturas || []).includes(LEG_ATUAL);
+  view.innerHTML = `
+    <div class="crumb"><a href="#/rankings/senado_emendas">Senado Federal</a> › senadores</div>
+    <h1>${esc(titleCase(p.nome))}${casaPill("senado")} <span class="pill">${esc(p.uf || "")}</span></h1>
+    <p class="lede">${atual ? "Senador(a)" : "Ex-senador(a)"} · legislaturas ${esc((p.legislaturas || []).join(", "))}${p.nome_completo && p.nome_completo.toUpperCase() !== String(p.nome).toUpperCase() ? ` · ${esc(titleCase(p.nome_completo))}` : ""}${p.deputado_id ? ` · <a href="#/p/${p.deputado_id}">também tem mandato na Câmara →</a>` : ""}</p>
+    <div class="tiles">
+      <div class="tile"><b>${brl(totEmp)}</b><span>emendas pagas como senador(a)</span></div>
+      <div class="tile"><b>${brl(totCeaps)}</b><span>cota parlamentar (CEAPS) desde 2023</span></div>
+      <div class="tile"><b>${nv ? nf(100 * presentes / nv, 0) + "%" : "—"}</b><span>presença em votações nominais desde 2023${nv ? ` (${nf(nv)})` : ""}</span></div>
+      <div class="tile"><b>${nf(nBills)}</b><span>projetos apresentados desde 2023</span></div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Para onde foram as emendas como senador(a) (2023+)</h3>${(p.destinos || []).length ? `<div class="bars">${barRows(p.destinos, r => r.codigo_ibge ? `<a href="#/m/${r.codigo_ibge}">${esc(titleCase(r.nome))}</a>` : `<span class="note">${esc(titleCase(r.nome || "não informado"))}</span>`, r => r.empenhado, brl)}</div>
+        ${p.destinos.some(r => !r.codigo_ibge) ? '<p class="note" style="margin-top:.5rem">Sem link: transferências a governos estaduais, ou emendas que a fonte registra como “Múltiplo” ou estado inteiro, sem município.</p>' : ""}` : '<p class="note">Nenhuma emenda desde 2023 (ou nome do autor não resolvido).</p>'}</div>
+      <div class="card"><h3>Votações nominais (plenário, desde 2023)</h3>${nv ? `<div class="bars">${barRows(votos, r => esc(r.tipo), r => r.n, v => nf(v))}</div>
+          <p class="note" style="margin-top:.6rem">O Senado não publica a orientação do Governo por votação como a Câmara, então não há índice de alinhamento aqui. “Outro voto” inclui votos secretos e abstenções.</p>` : '<p class="note">Sem votos registrados desde 2023.</p>'}
+        <h3 style="margin-top:1rem">Emendas pagas por ano</h3><div class="bars">${barRows(p.emendas || [], r => String(r.ano), r => r.pago || 0, brl)}</div></div>
+    </div>
+    <div class="grid g2" style="margin-top:1rem">
+      <div class="card"><h3>Cota parlamentar (CEAPS) por ano</h3>${(p.ceaps || []).length ? `<div class="bars">${barRows(p.ceaps, r => String(r.ano), r => r.gasto, brl)}</div>` : '<p class="note">Sem despesas registradas.</p>'}
+        <p class="note" style="margin-top:.5rem">${(p.proposicoes_resumo?.por_tipo || []).map(t => `${nf(t.n)} ${esc(t.sigla_tipo)}`).join(" · ")}</p></div>
+      <div class="card"><h3>Projetos mais recentes no Senado</h3>${(p.proposicoes || []).length ? (p.proposicoes || []).map(b => `<div class="bill" style="padding:.45rem 0"><a class="s" href="${esc(b.url || "#")}" target="_blank" rel="noopener">${esc(b.sigla)}</a> <span class="note">${esc(String(b.data_apresentacao || "").slice(0, 10))}${b.situacao_atual ? " · " + esc(b.situacao_atual) : ""}</span><div class="e">${esc(trim(b.ementa, 140))}</div></div>`).join("") : '<p class="note">Sem projetos registrados.</p>'}</div>
     </div>`;
 }
 function billList(bills) {
@@ -772,7 +845,7 @@ async function viewSimulador(pid) {
   const prop = props.find(p => p.id === pid);
   if (!prop) { view.innerHTML = `<p class="err">Proposta não encontrada. <a href="#/simulador">Ver todas</a></p>`; return; }
   const variantGroups = prop.variantes || {};
-  const state = {variante: {}, limiar: {}, uf: ""};
+  const state = {variante: {}, limiar: {}, uf: "", off: new Set()};
   view.innerHTML = `
     <div class="crumb"><a href="#/simulador">Simulador</a></div>
     ${PAINEL.faltando.some(t => t !== "gazetas") ? `<p class="err">Dados ainda não publicados: ${esc(PAINEL.faltando.filter(t => t !== "gazetas").join(", "))}. Enquanto isso, os municípios aparecem como “sem dado suficiente”.</p>` : ""}
@@ -808,7 +881,7 @@ async function viewSimulador(pid) {
   let data = null, crit = [];
   const status = (c, v) => v == null ? "sem_dado" : (c.op === ">=" ? v >= c.atual : c.op === ">" ? v > c.atual : c.op === "<=" ? v <= c.atual : v < c.atual) ? "atende" : "nao_atende";
   const evaluate = m => {
-    const s = crit.map(c => status(c, m.criterios[c.id].valor));
+    const s = crit.filter(c => !state.off.has(c.id)).map(c => status(c, m.criterios[c.id].valor));
     return s.includes("nao_atende") ? "nao_atende" : s.includes("sem_dado") ? "indeterminado" : "atende";
   };
   async function load() {
@@ -832,16 +905,18 @@ async function viewSimulador(pid) {
       ${Object.entries(variantGroups).map(([g, opts]) => `<div style="margin-bottom:.6rem"><div class="note" style="margin-bottom:.25rem">Fonte de ${esc(g)}</div>
         <div class="seg">${opts.map(o => `<button data-g="${g}" data-o="${o}" class="${(state.variante[g] || data.d.variante[g]) === o ? "on" : ""}">${o === "censo2022" ? "Censo 2022" : o === "sinisa" ? "SINISA 2024" : esc(o)}</button>`).join("")}</div></div>`).join("")}
       ${crit.map(c => `<div class="crit" data-id="${c.id}">
-        <div class="t">${esc(c.texto)}</div>
+        <label class="t" style="display:flex;gap:.45rem;align-items:flex-start;cursor:pointer"><input type="checkbox" class="on" ${state.off.has(c.id) ? "" : "checked"} style="margin-top:.2rem" aria-label="Considerar este critério"><span>${esc(c.texto)}</span></label>
         <div class="row"><span class="note">${esc(c.op)}</span><input type="range" min="${c.lo}" max="${c.hi}" step="${c.step}" value="${c.atual}" aria-label="${esc(c.metrica_label)}"><span class="lv">${fmtUnit(c.atual, c.unidade)}</span></div>
         <div class="mini"></div><div class="cap"></div></div>`).join("")}
       <button class="chip" id="reset" style="margin-top:.6rem">Restaurar limites do projeto</button>`;
     ctl.querySelectorAll(".seg button").forEach(b => b.onclick = async () => { state.variante[b.dataset.g] = b.dataset.o; document.getElementById("ctl").style.opacity = .5; await load(); document.getElementById("ctl").style.opacity = 1; });
     ctl.querySelectorAll(".crit").forEach(div => {
-      const c = crit.find(x => x.id === div.dataset.id), inp = div.querySelector("input"), lv = div.querySelector(".lv");
+      const c = crit.find(x => x.id === div.dataset.id), inp = div.querySelector("input[type=range]"), lv = div.querySelector(".lv");
+      div.style.opacity = state.off.has(c.id) ? .5 : 1;
+      div.querySelector("input.on").onchange = e => { e.target.checked ? state.off.delete(c.id) : state.off.add(c.id); div.style.opacity = e.target.checked ? 1 : .5; render(); };
       inp.oninput = () => { c.atual = +inp.value; state.limiar[c.id] = c.atual; lv.textContent = fmtUnit(c.atual, c.unidade); render(); };
     });
-    document.getElementById("reset").onclick = () => { state.limiar = {}; crit.forEach(c => c.atual = c.limiar_original); controls(); render(); };
+    document.getElementById("reset").onclick = () => { state.limiar = {}; state.off.clear(); crit.forEach(c => c.atual = c.limiar_original); controls(); render(); };
   }
   function render() {
     const ms = data.d.municipios.filter(m => !state.uf || m.uf === state.uf);
@@ -850,10 +925,15 @@ async function viewSimulador(pid) {
     map.color(cod => SIM_COLORS[allRes.get(cod)]);
     const agg = k => { const xs = ms.filter(m => res.get(m.cod_ibge) === k); return {n: xs.length, pop: xs.reduce((s, m) => s + (m.populacao || 0), 0)}; };
     const A = agg("atende"), N = agg("nao_atende"), I = agg("indeterminado");
-    const changed = crit.some(c => c.atual !== c.limiar_original);
+    const changed = crit.some(c => c.atual !== c.limiar_original) || state.off.size;
+    // a criterion with no data anywhere caps every município at "sem dado"
+    const vazios = crit.filter(c => !state.off.has(c.id) && !ms.some(m => m.criterios[c.id].valor != null));
     document.getElementById("out").innerHTML = [["atende", A], ["nao_atende", N], ["indeterminado", I]].map(([k, v]) =>
       `<div class="tile"><b>${nf(v.n)}</b><span><span class="sw ${k === "indeterminado" ? "nd" : ""}" style="${k === "indeterminado" ? "" : "background:" + SIM_COLORS[k]}"></span>${SIM_LABEL[k]} · ${compact(v.pop)} hab.</span></div>`).join("")
-      + (changed ? `<p class="note" style="grid-column:1/-1">Limites alterados em relação ao texto do projeto.</p>` : "");
+      + (vazios.length ? `<p class="note" style="grid-column:1/-1;border-left:3px solid var(--accent);padding-left:.6rem">Ainda não há dado de <b>${vazios.map(c => esc(c.metrica_label)).join(", ")}</b> para nenhum município, então nenhum pode ser confirmado como “atende”. Sem ${vazios.length > 1 ? "esses critérios" : "esse critério"}, <b>${nf(ms.filter(m => crit.filter(c => !state.off.has(c.id) && !vazios.includes(c)).every(c => status(c, m.criterios[c.id].valor) === "atende")).length)}</b> municípios atenderiam aos demais. <a href="#" id="skipvazios">Desconsiderar ${vazios.length > 1 ? "esses critérios" : "esse critério"} →</a></p>` : "")
+      + (changed ? `<p class="note" style="grid-column:1/-1">Critérios ou limites alterados em relação ao texto do projeto.</p>` : "");
+    const sk = document.getElementById("skipvazios");
+    if (sk) sk.onclick = e => { e.preventDefault(); vazios.forEach(c => state.off.add(c.id)); controls(); render(); };
     document.getElementById("slegend").innerHTML = `${state.uf || "Brasil"}: ${["atende", "nao_atende", "indeterminado"].map(k => `<span><i class="sw ${k === "indeterminado" ? "nd" : ""}" style="${k === "indeterminado" ? "" : "background:" + SIM_COLORS[k]}"></i>${SIM_LABEL[k]}</span>`).join("")}<span class="note">passe o mouse para ver cada critério</span>`;
     // per-criterion pass shares (each criterion alone) + the binding one
     document.querySelectorAll("#ctl .crit").forEach(div => {
@@ -880,10 +960,41 @@ async function viewSimulador(pid) {
 }
 
 // ================================================================ RANKINGS (classic views)
+function rankTable(rows, cols, valueKey, fmtV) {
+  const max = Math.max(...rows.map(r => r[valueKey] || 0), 1);
+  return `<div class="scroll"><table class="rkt"><thead><tr><th></th>${cols.map(c => `<th class="${c.r ? "r" : ""}">${c.h}</th>`).join("")}<th class="r">${esc(fmtV.h)}</th><th style="width:22%"></th></tr></thead><tbody>
+    ${rows.map((r, i) => `<tr><td class="rank">${i + 1}</td>${cols.map(c => `<td class="${c.r ? "r" : ""}">${c.f(r)}</td>`).join("")}<td class="r">${fmtV.f(r[valueKey])}</td><td><span class="track" style="display:block"><div class="fill" style="width:${Math.max(.4, 100 * (r[valueKey] || 0) / max)}%"></div></span></td></tr>`).join("")}</tbody></table></div>`;
+}
+function pixToggle(key, pix) {
+  return `<div class="tabs2" style="margin:0 0 .7rem"><a class="chip${pix ? "" : " on"}" style="${pix ? "" : "background:var(--accent-soft);color:var(--accent);font-weight:600"}" href="#/rankings/${key}">todas as emendas individuais</a><a class="chip" style="${pix ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/rankings/${key}?pix=1">só emendas Pix</a></div>`;
+}
+const autoresRank = (casa, key) => async params => {
+  const pix = params.get("pix") === "1";
+  const d = await get(`/emendas/autores?casa=${casa}&limit=40${pix ? "&apenas_pix=true" : ""}`);
+  const who = casa === "senado" ? "senadores" : "deputados";
+  return `${pixToggle(key, pix)}<p class="note" style="margin-bottom:.6rem">Emendas individuais ${pix ? "Pix (transferências especiais) " : ""}escritas por ${who} desde 2023, por valor pago. Cada emenda conta para a casa em que o autor estava quando o Orçamento foi votado; quem mudou de casa aparece nas duas.</p>
+    ${rankTable(d, [{h: "Autor", f: r => politicoLink(r, r.nome_autor)}, {h: "UF", f: r => esc(r.uf || "—")}, {h: "Emendas", r: 1, f: r => nf(r.emendas)}, {h: "Empenhado", r: 1, f: r => brl(r.empenhado)}], "pago", {h: "Pago", f: brl})}`;
+};
+const cotaRank = casa => async () => {
+  const d = await get(`/rankings/cota?casa=${casa}&limit=40`);
+  const link = r => casa === "senado" ? `<a href="#/s/${r.senador_id}">${esc(titleCase(r.nome))}</a>${casaPill("senado")}` : `<a href="#/p/${r.deputado_id}">${esc(titleCase(r.nome))}</a>${casaPill("camara")}`;
+  return `<p class="note" style="margin-bottom:.6rem">${casa === "senado" ? "Cota para o Exercício da Atividade Parlamentar dos Senadores (CEAPS): valores reembolsados" : "Cota para o Exercício da Atividade Parlamentar (CEAP) da Câmara: valor líquido"} desde 2023. O teto da cota varia por estado (passagens), e mandatos têm durações diferentes: compare também a média por mês.</p>
+    ${rankTable(d, [{h: casa === "senado" ? "Senador(a)" : "Deputado(a)", f: link}, {h: "Partido · UF", f: r => esc([r.partido, r.uf].filter(Boolean).join(" · ") || "—")}, {h: "Meses", r: 1, f: r => nf(r.meses)}, {h: "Média/mês", r: 1, f: r => brl(r.gasto / Math.max(1, r.meses))}], "gasto", {h: "Total", f: brl})}`;
+};
 const RANKS = {
-  pix: ["Autores de emendas Pix", async () => {
-    const d = await get("/emendas/autores?apenas_pix=true&limit=30");
-    return `<p class="note" style="margin-bottom:.6rem">Transferências especiais desde 2023, por valor empenhado.</p><div class="bars">${barRows(d, r => politicoLink(r, r.nome_autor) + ` <span class="pill">${esc(r.uf || "?")}</span>`, r => r.empenhado, brl)}</div>`; }],
+  camara_emendas: ["Emendas", autoresRank("camara", "camara_emendas")],
+  camara_cota: ["Cota parlamentar (CEAP)", cotaRank("camara")],
+  senado_emendas: ["Emendas", autoresRank("senado", "senado_emendas")],
+  senado_cota: ["Cota parlamentar (CEAPS)", cotaRank("senado")],
+  coletivas: ["Bancadas, comissões e relator", async () => {
+    const d = await get("/emendas/autores?casa=coletivas&limit=40");
+    return `<p class="note" style="margin-bottom:.6rem">Emendas de bancada estadual, de comissão (da Câmara, do Senado ou mistas) e de relator, desde 2023, por valor pago. São decisões coletivas: não têm um único autor.</p>
+      ${rankTable(d, [{h: "Autor", f: r => esc(titleCase(r.nome_autor)) + casaPill(r.casa)}, {h: "Emendas", r: 1, f: r => nf(r.emendas)}, {h: "Empenhado", r: 1, f: r => brl(r.empenhado)}], "pago", {h: "Pago", f: brl})}`; }],
+  recebido: ["Recebido pela prefeitura por habitante", async () => {
+    await painel();
+    const d = PAINEL.rows.filter(r => r.recebido_prefeitura_per_capita > 0).sort((a, b) => b.recebido_prefeitura_per_capita - a.recebido_prefeitura_per_capita).slice(0, 40);
+    return `<p class="note" style="margin-bottom:.6rem">Emendas pagas desde 2023 à prefeitura e aos fundos municipais (todos os tipos) ÷ população. <a href="#/">Ver no mapa →</a></p>
+      ${rankTable(d, [{h: "Município", f: r => `<a href="#/m/${r.cod_ibge}">${esc(r.nome)}</a>`}, {h: "UF", f: r => r.uf}, {h: "Pop.", r: 1, f: r => nf(r.populacao)}], "recebido_prefeitura_per_capita", {h: "R$/hab", f: v => "R$ " + nf(v)})}`; }],
   percapita: ["Pix por habitante", async () => {
     await painel();
     const d = PAINEL.rows.filter(r => r.pix_per_capita > 0).sort((a, b) => b.pix_per_capita - a.pix_per_capita).slice(0, 30);
@@ -899,10 +1010,10 @@ const RANKS = {
     const agg = {}; for (const r of d) agg[r.categoria] = (agg[r.categoria] || 0) + r.empenhado;
     const rows = Object.entries(agg).map(([categoria, v]) => ({categoria, v})).sort((a, b) => b.v - a.v);
     return `<p class="note" style="margin-bottom:.6rem">Categoria prática de cada emenda (regras + IA).</p><div class="bars">${barRows(rows, r => esc(r.categoria), r => r.v, brl)}</div>`; }],
-  partidos: ["Partidos", async () => {
+  partidos: ["Partidos (alinhamento)", async () => {
     const d = (await get("/indices/partidos")).sort((a, b) => b.governismo_medio - a.governismo_medio);
     return `<p class="note" style="margin-bottom:.6rem">Alinhamento médio com a orientação do Governo, por partido (deputados com ≥100 votos).</p><div class="bars">${barRows(d, r => `${esc(r.partido)} <span class="note">(${r.deputados})</span>`, r => r.governismo_medio * 100, v => nf(v) + "%")}</div>`; }],
-  governismo: ["Governismo", async () => {
+  governismo: ["Alinhamento com o Governo", async () => {
     const d = (await get("/indices/governismo?limit=600")).sort((a, b) => b.governismo - a.governismo);
     const list = xs => `<div class="bars">${barRows(xs, r => `<a href="#/p/${r.deputado_id}">${esc(r.nome)}</a> <span class="pill">${esc(r.partido || "")}</span>`, r => r.governismo * 100, v => nf(v) + "%")}</div>`;
     return `<p class="note" style="margin-bottom:.6rem">Concordância com a orientação da bancada do Governo (plenário 2023+, mín. 200 votos).</p>
@@ -912,10 +1023,22 @@ const RANKS = {
     return `<p class="note" style="margin-bottom:.6rem">Destinatários finais de emendas (empresas), com CNAE. Bancos públicos aparecem como operadores de repasse.</p><div class="bars">${barRows(d, r => `${esc(trim(r.nome, 40))} <span class="note">${esc(trim(r.atividade || "", 40))}</span>`, r => r.recebido, brl)}</div>`; }],
   comparar: ["Comparar deputados", async () => compareForm()],
 };
-async function viewRankings(which) {
-  which = RANKS[which] ? which : "pix";
-  view.innerHTML = `<h1>Rankings</h1><div class="tabs2">${Object.entries(RANKS).map(([k, [lbl]]) => `<a class="chip" style="${k === which ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/rankings/${k}">${lbl}</a>`).join("")}</div><div class="card" id="rk"><div class="loading">carregando…</div></div>`;
-  try { document.getElementById("rk").innerHTML = await RANKS[which][1](); if (which === "comparar") wireCompare(); }
+const RANK_GROUPS = [
+  {g: "Câmara dos Deputados", cls: "camara", items: ["camara_emendas", "camara_cota", "governismo", "partidos", "comparar"]},
+  {g: "Senado Federal", cls: "senado", items: ["senado_emendas", "senado_cota"]},
+  {g: "Emendas coletivas", items: ["coletivas"]},
+  {g: "Municípios", items: ["percapita", "recebido", "detector"]},
+  {g: "O dinheiro", items: ["categorias", "favorecidos"]},
+];
+const RANK_ALIAS = {pix: "camara_emendas"};
+async function viewRankings(which, params = new URLSearchParams()) {
+  which = RANK_ALIAS[which] || which;
+  which = RANKS[which] ? which : "camara_emendas";
+  const grp = RANK_GROUPS.find(g => g.items.includes(which));
+  view.innerHTML = `<h1>Rankings</h1><p class="lede">Câmara e Senado separados: cada emenda conta para a casa em que o autor estava ao votar o Orçamento.</p>
+    <div class="rk-nav">${RANK_GROUPS.map(g => `<div class="g ${g.cls || ""}"><b>${esc(g.g)}</b>${g.items.map(k => `<a class="chip${k === which ? " on" : ""}" href="#/rankings/${k}">${esc(RANKS[k][0])}</a>`).join("")}</div>`).join("")}</div>
+    <div class="card"><h3 style="margin-bottom:.5rem">${esc(grp ? grp.g + " · " : "")}${esc(RANKS[which][0])}</h3><div id="rk"><div class="loading">carregando…</div></div></div>`;
+  try { document.getElementById("rk").innerHTML = await RANKS[which][1](params); if (which === "comparar") wireCompare(); }
   catch (e) { document.getElementById("rk").innerHTML = `<p class="err">erro (${esc(e.message)}). Esta tabela pode ainda não ter sido publicada.</p>`; }
 }
 function compareForm() {
@@ -952,24 +1075,47 @@ async function runCompare() {
 }
 
 // ================================================================ TABELAS
+let TABELAS = null;
+async function tabelas() { return TABELAS || (TABELAS = await get("/tabelas")); }
 async function viewTabelas() {
   loading();
   try {
-    const d = await get("/tabelas");
-    view.innerHTML = `<h1>Todas as tabelas</h1><p class="lede">Cada tabela do lake é pública em Parquet e consultável com DuckDB direto da URL. <a href="/docs/data.md">Documentação →</a></p>
-      <div class="card" style="margin-top:1rem"><div class="scroll"><table><thead><tr><th>Tabela</th><th class="r">Linhas</th><th>Colunas</th></tr></thead><tbody>
-      ${d.map(r => `<tr><td><a href="#/t/${esc(r.tabela)}">${esc(r.tabela)}</a></td><td class="r">${nf(r.linhas)}</td><td class="note">${esc(r.colunas.join(", "))}</td></tr>`).join("")}</tbody></table></div></div>`;
+    const d = await tabelas();
+    const grupos = [...new Set(d.map(r => r.grupo || "Outras"))];
+    const total = d.reduce((s, r) => s + r.linhas, 0);
+    view.innerHTML = `<h1>Tabelas</h1><p class="lede">${d.length} tabelas públicas, ${compact(total)} linhas no total. Cada uma é um arquivo Parquet aberto: baixe ou consulte com DuckDB direto da URL, sem cadastro. <a href="/docs/data.md">Documentação e junções →</a></p>
+      <div class="search" style="max-width:26rem;margin:1rem 0"><input id="tq" type="search" placeholder="Filtrar tabelas e colunas (ex.: cnpj, ideb, voto)…" autocomplete="off"></div>
+      <div id="tg">${grupos.map(g => `<section data-g="${esc(g)}" style="margin-top:1.2rem"><h2 style="font-size:1rem;margin-bottom:.6rem">${esc(g)}</h2><div class="tgrid">
+        ${d.filter(r => (r.grupo || "Outras") === g).map(r => `<a class="tcard" href="#/t/${esc(r.tabela)}" data-s="${esc((r.tabela + " " + (r.descricao || "") + " " + r.colunas.join(" ")).toLowerCase())}"><code>${esc(r.tabela)}</code><p>${esc(r.descricao || "")}</p><small>${nf(r.linhas)} linhas · ${r.colunas.length} colunas</small></a>`).join("")}
+      </div></section>`).join("")}</div>`;
+    document.getElementById("tq").oninput = e => {
+      const q = e.target.value.trim().toLowerCase();
+      document.querySelectorAll("#tg .tcard").forEach(c => c.hidden = q && !c.dataset.s.includes(q));
+      document.querySelectorAll("#tg section").forEach(sec => sec.hidden = ![...sec.querySelectorAll(".tcard")].some(c => !c.hidden));
+    };
   } catch (e) { fail(e, "as tabelas"); }
 }
 async function viewTabela(name) {
   loading();
   try {
-    const d = await get("/tabela/" + encodeURIComponent(name) + "?limit=50");
-    const rows = d.amostra || [], cols = rows.length ? Object.keys(rows[0]) : [];
-    view.innerHTML = `<div class="crumb"><a href="#/tabelas">Tabelas</a></div><h1>${esc(name)}</h1>
-      <p class="note" style="margin:.4rem 0 1rem">Amostra de ${rows.length} linhas · <a href="https://data.caramelo.dev.br/latest/${esc(name)}.parquet">baixar Parquet completo</a></p>
-      <div class="card scroll"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
-      ${rows.map(r => `<tr>${cols.map(c => `<td style="max-width:16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[c] == null ? "—" : esc(String(r[c]).slice(0, 80))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    const [d, all] = await Promise.all([get("/tabela/" + encodeURIComponent(name) + "?limit=50"), tabelas().catch(() => [])]);
+    const meta = all.find(t => t.tabela === name) || {colunas: [], tipos: []};
+    const rows = d.amostra || [], cols = rows.length ? Object.keys(rows[0]) : meta.colunas;
+    const url = `https://data.caramelo.dev.br/latest/${name}.parquet`;
+    const fmtCell = v => v == null ? '<span class="note">—</span>' : esc(typeof v === "object" ? JSON.stringify(v) : String(v)).slice(0, 120);
+    view.innerHTML = `<div class="crumb"><a href="#/tabelas">Tabelas</a> › ${esc(d.grupo || meta.grupo || "")}</div><h1><code>${esc(name)}</code></h1>
+      <p class="lede">${esc(d.descricao || meta.descricao || "")}</p>
+      <div class="tiles"><div class="tile"><b>${meta.linhas != null ? nf(meta.linhas) : "—"}</b><span>linhas</span></div><div class="tile"><b>${nf(cols.length)}</b><span>colunas</span></div>
+        <div class="tile"><b><a href="${url}">Parquet ↓</a></b><span>arquivo completo, atualizado diariamente</span></div></div>
+      <div class="grid g2" style="margin-top:1rem">
+        <div class="card"><h3>Colunas</h3><div class="scroll"><table><thead><tr><th>Coluna</th><th>Tipo</th></tr></thead><tbody>
+          ${meta.colunas.map((c, i) => `<tr><td><code>${esc(c)}</code></td><td class="note">${esc(meta.tipos?.[i] || "")}</td></tr>`).join("")}</tbody></table></div></div>
+        <div class="card"><h3>Consultar com DuckDB</h3><pre class="sql">SELECT *
+FROM '${esc(url)}'
+LIMIT 10;</pre><p class="note" style="margin-top:.6rem">Funciona no <a href="https://shell.duckdb.org" target="_blank" rel="noopener">DuckDB no navegador</a>, em Python (<code>duckdb.sql(...)</code>) ou no terminal. A API também serve consultas prontas: <a href="https://api.caramelo.dev.br/docs" target="_blank" rel="noopener">api.caramelo.dev.br/docs</a>.</p></div>
+      </div>
+      <div class="card" style="margin-top:1rem"><h3>Amostra (${rows.length} linhas)</h3><div class="scroll"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+      ${rows.map(r => `<tr>${cols.map(c => `<td style="max-width:16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r[c] == null ? "" : String(r[c]).slice(0, 300))}">${fmtCell(r[c])}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
   } catch (e) { fail(e, "a tabela"); }
 }
 
@@ -985,7 +1131,10 @@ async function viewTabela(name) {
         const [d, bills] = await Promise.all([get("/busca?q=" + encodeURIComponent(term)), get("/proposicoes?limit=4&q=" + encodeURIComponent(term)).catch(() => [])]);
         const items = [];
         for (const m of d.municipios || []) items.push(`<a href="#/m/${m.codigo_ibge}"><span>${esc(m.nome)}</span><span class="k">município · ${esc(m.uf)}</span></a>`);
-        for (const p of d.politicos || []) if (p.deputado_id) items.push(`<a href="#/p/${p.deputado_id}"><span>${esc(p.nome)}</span><span class="k">deputado · ${esc(p.partido || "")} ${esc(p.uf || "")}</span></a>`);
+        for (const p of d.politicos || []) {
+          const ex = p.ultima_legislatura && p.ultima_legislatura < LEG_ATUAL ? "ex-" : "";
+          items.push(`<a href="${politicoHref(p)}"><span>${esc(titleCase(p.nome))}${casaPill(p.casa)}</span><span class="k">${ex}${p.casa === "senado" ? "senador(a)" : "deputado(a)"} · ${esc([p.partido, p.uf].filter(Boolean).join(" "))}</span></a>`);
+        }
         for (const b of bills) items.push(`<a href="#/b/${b.id}"><span>${esc(b.sigla)} — ${esc(trim(b.ementa, 70))}</span><span class="k">projeto</span></a>`);
         if (bills.length) items.push(`<a href="#/leis?q=${encodeURIComponent(term)}"><span>Ver todos os projetos com “${esc(term)}”</span><span class="k">→</span></a>`);
         box.innerHTML = items.join("") || `<div class="note" style="padding:.6rem .85rem">nada encontrado</div>`;
@@ -1012,15 +1161,16 @@ function route() {
   const parts = path.split("/").filter(Boolean);
   const params = new URLSearchParams(qs || "");
   const top = parts[0] || "";
-  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === (["m", "p", "b", "t"].includes(top) ? "__" : top === "compare" ? "rankings" : top)));
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === (["m", "p", "s", "b", "t"].includes(top) ? "__" : top === "compare" ? "rankings" : top)));
   window.scrollTo(0, 0);
   if (top === "m") return viewMunicipio(parts[1]);
   if (top === "p") return viewPolitico(parts[1]);
+  if (top === "s") return viewSenador(parts[1]);
   if (top === "b") return viewProposicao(parts[1]);
   if (top === "t") return viewTabela(parts[1]);
   if (top === "leis") return viewLeis(params);
   if (top === "simulador") return viewSimulador(parts[1]);
-  if (top === "rankings") return viewRankings(parts[1]);
+  if (top === "rankings") return viewRankings(parts[1], params);
   if (top === "compare") return viewRankings("comparar");
   if (top === "tabelas") return viewTabelas();
   return viewHome();

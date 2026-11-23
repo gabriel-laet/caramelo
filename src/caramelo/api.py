@@ -35,9 +35,15 @@ def lake() -> domain.Lake:
 @app.get("/emendas/autores", operation_id="emendas_autores",
          summary="Ranking of emenda authors by money moved")
 def emendas_autores(ano_min: int = 2023, apenas_pix: bool = False,
+                    casa: str | None = Query(
+                        None, pattern="^(camara|senado|coletivas)$",
+                        description="camara | senado (individual emendas "
+                                    "by house) | coletivas (bancada, "
+                                    "comissão, relator)"),
                     limit: int = Query(25, le=200)) -> list[dict]:
     return domain.emendas_por_autor(lake(), ano_min=ano_min,
-                                    apenas_pix=apenas_pix, limit=limit)
+                                    apenas_pix=apenas_pix, casa=casa,
+                                    limit=limit)
 
 
 @app.get("/emendas/municipio/{codigo_ibge}", operation_id="emendas_municipio",
@@ -60,6 +66,24 @@ def politico(deputado_id: int) -> dict:
     if not profile:
         raise HTTPException(404, "deputado não encontrado")
     return profile
+
+
+@app.get("/senadores/{senador_id}", operation_id="senador",
+         summary="Senator profile: identity, emendas, CEAPS, bills, votes")
+def senador(senador_id: int) -> dict:
+    profile = domain.senador(lake(), senador_id)
+    if not profile:
+        raise HTTPException(404, "senador não encontrado")
+    return profile
+
+
+@app.get("/rankings/cota", operation_id="cota",
+         summary="Parliamentarians ranked by expense-quota spending "
+                 "(CEAP for deputados, CEAPS for senadores)")
+def ranking_cota(casa: str = Query("camara", pattern="^(camara|senado)$"),
+                 ano_min: int = 2023,
+                 limit: int = Query(30, le=600)) -> list[dict]:
+    return domain.cota(lake(), casa=casa, ano_min=ano_min, limit=limit)
 
 
 @app.get("/indices/governismo", operation_id="governismo",

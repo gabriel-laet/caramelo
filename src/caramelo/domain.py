@@ -88,6 +88,38 @@ class Lake:
               ON b.esfera = 'municipio' AND mm.codigo_ibge = b.cod_ibge
             WHERE e.is_transferencia_especial)"""
 
+    def autoria(self, source: str | None = None) -> str:
+        """`source` (default: plain emendas) plus who wrote each emenda:
+        `casa` is 'camara' or 'senado' for individual emendas (the house
+        the author sat in when the budget was voted, the year before `ano`;
+        people who moved between houses are split correctly), or
+        'bancada' / 'comissao' / 'relator' for collective ones, with the
+        author's `deputado_id` / `senador_id` from autores_crosswalk."""
+        src = source or self.table("emendas")
+        c, s, d = (self.table(t) for t in
+                   ("autores_crosswalk", "senadores", "deputados"))
+        # legislatura sitting in the year the LOA was voted (ano - 1):
+        # 56 = 2019-2022, 57 = 2023-2026, ...
+        leg = "(CAST(floor((e.ano - 1 - 2019) / 4) AS INTEGER) + 56)"
+        return f"""(
+            SELECT e.*, c.deputado_id, c.senador_id, c.uf AS autor_uf,
+                   CASE
+                     WHEN e.tipo ILIKE '%bancada%' THEN 'bancada'
+                     WHEN e.tipo ILIKE '%comiss%' THEN 'comissao'
+                     WHEN e.tipo ILIKE '%relator%' THEN 'relator'
+                     WHEN c.senador_id IN (SELECT codigo FROM {s}
+                                           WHERE legislatura = {leg})
+                       THEN 'senado'
+                     WHEN c.deputado_id IN (SELECT id FROM {d}
+                                            WHERE legislatura = {leg})
+                       THEN 'camara'
+                     WHEN c.senador_id IS NOT NULL AND c.deputado_id IS NULL
+                       THEN 'senado'
+                     WHEN c.deputado_id IS NOT NULL THEN 'camara'
+                   END AS casa
+            FROM {src} e
+            LEFT JOIN {c} c USING (nome_autor))"""
+
     def q(self, sql: str, params: list | None = None) -> list[dict]:
         # One cursor per query: the API serves requests from a thread pool
         # and a DuckDB connection refuses concurrent calls.
@@ -104,23 +136,32 @@ def default_lake() -> Lake:
 # ---------------------------------------------------------------- emendas
 
 def emendas_por_autor(lake: Lake, *, ano_min: int = 2023,
-                      apenas_pix: bool = False, limit: int = 25) -> list[dict]:
-    """Ranking of emenda authors by money moved."""
+                      apenas_pix: bool = False, casa: str | None = None,
+                      limit: int = 25) -> list[dict]:
+    """Ranking of emenda authors by money moved. `casa` filters to
+    'camara', 'senado' (individual emendas by house) or 'coletivas'
+    (bancada, comissão, relator); each row says its `casa`."""
     where = "ano >= ? AND nome_autor IS NOT NULL"
+    params: list = [ano_min]
     if apenas_pix:
         where += " AND is_transferencia_especial"
+    if casa == "coletivas":
+        where += " AND casa IN ('bancada', 'comissao', 'relator')"
+    elif casa:
+        where += " AND casa = ?"
+        params.append(casa)
     return lake.q(f"""
-        SELECT e.nome_autor,
-               any_value(c.uf) AS uf,
-               any_value(c.deputado_id) AS deputado_id,
-               any_value(c.senador_id) AS senador_id,
+        SELECT nome_autor,
+               arg_max(casa, ano) AS casa,
+               any_value(autor_uf) AS uf,
+               any_value(deputado_id) AS deputado_id,
+               any_value(senador_id) AS senador_id,
                count(*) AS emendas,
-               round(sum(e.valor_empenhado), 2) AS empenhado,
-               round(sum(e.valor_pago), 2) AS pago
-        FROM {lake.table('emendas')} e
-        LEFT JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
+               round(sum(valor_empenhado), 2) AS empenhado,
+               round(sum(valor_pago), 2) AS pago
+        FROM {lake.autoria()}
         WHERE {where}
-        GROUP BY 1 ORDER BY pago DESC LIMIT ?""", [ano_min, limit])
+        GROUP BY 1 ORDER BY pago DESC LIMIT ?""", [*params, limit])
 
 
 def emendas_por_municipio(lake: Lake, codigo_ibge: str,
@@ -165,6 +206,11 @@ def politico(lake: Lake, deputado_id: int) -> dict:
     if not base:
         return {}
     profile = base[0]
+    profile["casa"] = "camara"
+    profile["senador_id"] = (lake.q(f"""
+        SELECT senador_id FROM {lake.table('autores_crosswalk')}
+        WHERE deputado_id = ? AND senador_id IS NOT NULL LIMIT 1""",
+        [deputado_id]) or [{}])[0].get("senador_id")
     profile["redes"] = lake.q(f"""
         SELECT rede, handle, url FROM {lake.table('redes_sociais')}
         WHERE parlamentar_id = ? AND casa = 'camara'""", [deputado_id])
@@ -175,9 +221,9 @@ def politico(lake: Lake, deputado_id: int) -> dict:
     profile["emendas"] = lake.q(f"""
         SELECT e.ano, count(*) AS emendas,
                round(sum(e.valor_pago), 2) AS pago
-        FROM {lake.table('emendas')} e
-        JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
-        WHERE c.deputado_id = ? GROUP BY 1 ORDER BY 1""", [deputado_id])
+        FROM {lake.autoria()} e
+        WHERE e.deputado_id = ? AND e.casa = 'camara'
+        GROUP BY 1 ORDER BY 1""", [deputado_id])
     # Destination: the Portal's município, or for Pix the beneficiary from
     # TransfereGov (Lake.emendas); what neither resolves stays as the
     # Portal's localidade ("MÚLTIPLO", a whole UF).
@@ -189,9 +235,8 @@ def politico(lake: Lake, deputado_id: int) -> dict:
                round(sum(e.valor_empenhado), 2) AS empenhado,
                round(sum(CASE WHEN e.is_transferencia_especial
                               THEN e.valor_empenhado ELSE 0 END), 2) AS pix
-        FROM {lake.emendas()} e
-        JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
-        WHERE c.deputado_id = ? AND e.ano >= 2023
+        FROM {lake.autoria(lake.emendas())} e
+        WHERE e.deputado_id = ? AND e.casa = 'camara' AND e.ano >= 2023
         GROUP BY e.codigo_ibge_municipio,
                  CASE WHEN e.codigo_ibge_municipio IS NULL THEN e.localidade END
         ORDER BY empenhado DESC LIMIT 15""", [deputado_id])
@@ -225,6 +270,119 @@ def politico(lake: Lake, deputado_id: int) -> dict:
     except Exception:  # proposições not published yet
         profile["proposicoes_resumo"] = {"por_tipo": [], "temas": []}
     return profile
+
+
+def _ceaps_por_senador(lake: Lake) -> str:
+    """CEAPS rows with the senator's código (the file only has names)."""
+    return f"""(
+        SELECT x.*, s.codigo AS senador_id
+        FROM {lake.table('ceaps')} x
+        LEFT JOIN (SELECT codigo,
+                          any_value(upper(strip_accents(nome_parlamentar))) AS np,
+                          any_value(upper(strip_accents(nome_completo))) AS nc
+                   FROM {lake.table('senadores')} GROUP BY 1) s
+          ON upper(strip_accents(x.senador_nome)) IN (s.np, s.nc))"""
+
+
+def senador(lake: Lake, senador_id: int) -> dict:
+    """One senator's profile: identity, emendas written as senator,
+    destinations, CEAPS by year, Senate bills and roll-call votes."""
+    base = lake.q(f"""
+        SELECT codigo AS senador_id, any_value(nome_parlamentar) AS nome,
+               any_value(nome_completo) AS nome_completo,
+               max_by(uf, legislatura) AS uf,
+               list(DISTINCT legislatura ORDER BY legislatura) AS legislaturas
+        FROM {lake.table('senadores')} WHERE codigo = ? GROUP BY 1""",
+        [senador_id])
+    if not base:
+        return {}
+    p = base[0]
+    p["casa"] = "senado"
+    p["deputado_id"] = (lake.q(f"""
+        SELECT deputado_id FROM {lake.table('autores_crosswalk')}
+        WHERE senador_id = ? AND deputado_id IS NOT NULL LIMIT 1""",
+        [senador_id]) or [{}])[0].get("deputado_id")
+    p["emendas"] = lake.q(f"""
+        SELECT ano, count(*) AS emendas, round(sum(valor_pago), 2) AS pago
+        FROM {lake.autoria()} WHERE senador_id = ? AND casa = 'senado'
+        GROUP BY 1 ORDER BY 1""", [senador_id])
+    p["destinos"] = lake.q(f"""
+        SELECT e.codigo_ibge_municipio AS codigo_ibge,
+               coalesce(any_value(e.municipio), any_value(e.localidade))
+                 AS nome, any_value(e.uf) AS uf, count(*) AS emendas,
+               round(sum(e.valor_empenhado), 2) AS empenhado,
+               round(sum(CASE WHEN e.is_transferencia_especial
+                              THEN e.valor_empenhado ELSE 0 END), 2) AS pix
+        FROM {lake.autoria(lake.emendas())} e
+        WHERE e.senador_id = ? AND e.casa = 'senado' AND e.ano >= 2023
+        GROUP BY e.codigo_ibge_municipio,
+                 CASE WHEN e.codigo_ibge_municipio IS NULL THEN e.localidade END
+        ORDER BY empenhado DESC LIMIT 15""", [senador_id])
+    try:
+        p["ceaps"] = lake.q(f"""
+            SELECT ano, round(sum(valor_reembolsado), 2) AS gasto
+            FROM {_ceaps_por_senador(lake)} WHERE senador_id = ?
+            GROUP BY 1 ORDER BY 1""", [senador_id])
+    except Exception:
+        p["ceaps"] = []
+    try:
+        p["votos"] = lake.q(f"""
+            SELECT CASE WHEN voto IN ('Sim', 'Não') THEN voto
+                        WHEN voto IN ('Votou', 'Abstenção') THEN 'Outro voto'
+                        WHEN voto LIKE 'P-%' OR voto LIKE 'Presidente%'
+                          THEN 'Presente sem votar'
+                        ELSE 'Ausente ou licenciado' END AS tipo,
+                   count(*) AS n
+            FROM {lake.table('senado_votos')}
+            WHERE senador_id = ? AND data_sessao >= '2023-02-01'
+            GROUP BY 1 ORDER BY 2 DESC""", [senador_id])
+    except Exception:
+        p["votos"] = []
+    try:
+        p["proposicoes_resumo"] = {"por_tipo": lake.q(f"""
+            SELECT sp.sigla_tipo, count(*) AS n
+            FROM {lake.table('senado_proposicoes_autores')} a
+            JOIN {lake.table('senado_proposicoes')} sp ON sp.id = a.id_processo
+            WHERE a.codigo_senador = ? AND sp.ano >= 2023
+            GROUP BY 1 ORDER BY 2 DESC""", [senador_id])}
+        p["proposicoes"] = lake.q(f"""
+            SELECT sp.id, sp.identificacao AS sigla, sp.ementa,
+                   sp.data_apresentacao, sp.situacao_atual, sp.tramitando,
+                   sp.url
+            FROM {lake.table('senado_proposicoes_autores')} a
+            JOIN {lake.table('senado_proposicoes')} sp ON sp.id = a.id_processo
+            WHERE a.codigo_senador = ?
+            ORDER BY sp.data_apresentacao DESC NULLS LAST LIMIT 12""",
+            [senador_id])
+    except Exception:
+        p["proposicoes_resumo"], p["proposicoes"] = {"por_tipo": []}, []
+    return p
+
+
+def cota(lake: Lake, *, casa: str = "camara", ano_min: int = 2023,
+         limit: int = 30) -> list[dict]:
+    """Parliamentarians ranked by expense-quota spending: CEAP for
+    deputados, CEAPS for senadores (amounts reimbursed/net)."""
+    if casa == "senado":
+        return lake.q(f"""
+            SELECT senador_id, any_value(senador_nome) AS nome,
+                   NULL AS partido,
+                   (SELECT max_by(uf, legislatura) FROM {lake.table('senadores')}
+                    WHERE codigo = x.senador_id) AS uf,
+                   round(sum(valor_reembolsado), 2) AS gasto,
+                   count(DISTINCT ano::INT * 100 + mes) AS meses
+            FROM {_ceaps_por_senador(lake)} x
+            WHERE ano >= ? AND senador_id IS NOT NULL
+            GROUP BY 1 ORDER BY gasto DESC LIMIT ?""", [ano_min, limit])
+    return lake.q(f"""
+        SELECT deputado_id, any_value(nome_parlamentar) AS nome,
+               max_by(partido, ano::INT * 100 + mes) AS partido,
+               max_by(uf, ano::INT * 100 + mes) AS uf,
+               round(sum(valor_liquido), 2) AS gasto,
+               count(DISTINCT ano::INT * 100 + mes) AS meses
+        FROM {lake.table('ceap')}
+        WHERE ano >= ? AND deputado_id IS NOT NULL
+        GROUP BY 1 ORDER BY gasto DESC LIMIT ?""", [ano_min, limit])
 
 
 def governismo(lake: Lake, *, min_votos: int = 200,
@@ -297,14 +455,14 @@ def municipio(lake: Lake, codigo_ibge: str) -> dict:
     except Exception:
         out["gazetas_shows"] = []
     out["autores"] = lake.q(f"""
-        SELECT e.nome_autor, any_value(c.deputado_id) AS deputado_id,
-               any_value(c.senador_id) AS senador_id,
-               any_value(c.uf) AS uf, count(*) AS emendas,
+        SELECT e.nome_autor, arg_max(e.casa, e.ano) AS casa,
+               any_value(e.deputado_id) AS deputado_id,
+               any_value(e.senador_id) AS senador_id,
+               any_value(e.autor_uf) AS uf, count(*) AS emendas,
                round(sum(e.valor_empenhado), 2) AS empenhado,
                round(sum(CASE WHEN e.is_transferencia_especial
                               THEN e.valor_empenhado ELSE 0 END), 2) AS pix
-        FROM {lake.emendas()} e
-        LEFT JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
+        FROM {lake.autoria(lake.emendas())} e
         WHERE e.codigo_ibge_municipio = ? AND e.ano >= 2023
           AND e.nome_autor IS NOT NULL
         GROUP BY 1 ORDER BY empenhado DESC LIMIT 15""", [codigo_ibge])
@@ -436,29 +594,90 @@ def trends_politico(lake: Lake, nome_autor: str) -> list[dict]:
 
 
 # Tables safe to expose row-sampled through /tabela/{name}
-BROWSABLE_TABLES = (
-    "emendas", "favorecidos", "deputados", "senadores", "votacoes", "votos",
-    "orientacoes", "ceap", "ceaps", "municipios", "siconfi_rreo",
-    "redes_sociais", "media", "trends", "posts", "x_users", "senadores_x",
-    "gazetas", "tse_candidatos", "tse_receitas", "cnpjs", "socios",
-    "pix_planos_acao", "pix_planos_trabalho", "pix_finalidades", "pix_metas",
-    "emendas_categorias", "autores_crosswalk",
-    "indicadores_municipio", "financas_municipio", "proposicoes",
-    "proposicoes_autores", "proposicoes_temas", "senado_proposicoes",
-    "senado_proposicoes_autores",
-)
+# table -> (group, description in Portuguese); also the browsable allow-list
+TABLE_CATALOG: dict[str, tuple[str, str]] = {
+    # emendas
+    "emendas": ("Emendas parlamentares", "Todas as emendas ao Orçamento desde 2014: autor, tipo, função, local e valores empenhado/liquidado/pago (Portal da Transparência)."),
+    "emendas_categorias": ("Emendas parlamentares", "Categoria prática de cada emenda (saúde, pavimentação, eventos…), por regras e IA."),
+    "favorecidos": ("Emendas parlamentares", "Quem recebeu o dinheiro de cada emenda, por mês: CNPJ/CPF, natureza jurídica, UF e município do recebedor."),
+    "emendas_recebidas_municipio": ("Emendas parlamentares", "Derivada: valor pago à prefeitura e aos fundos municipais de cada município, por ano e tipo de emenda."),
+    "pix_beneficiarios": ("Emendas parlamentares", "Derivada: destino de cada emenda Pix (beneficiário do plano de ação), com código IBGE."),
+    "pix_planos_acao": ("Emendas parlamentares", "Planos de ação das emendas Pix no TransfereGov (um por emenda × beneficiário)."),
+    "pix_planos_trabalho": ("Emendas parlamentares", "Planos de trabalho das emendas Pix (TransfereGov)."),
+    "pix_finalidades": ("Emendas parlamentares", "Finalidades declaradas das emendas Pix (TransfereGov)."),
+    "pix_metas": ("Emendas parlamentares", "Metas físicas declaradas das emendas Pix (TransfereGov)."),
+    "autores_crosswalk": ("Emendas parlamentares", "Derivada: liga o nome do autor da emenda ao deputado e/ou senador."),
+    # Câmara
+    "deputados": ("Câmara dos Deputados", "Deputados das legislaturas 55 a 57: nome, partido, UF."),
+    "votacoes": ("Câmara dos Deputados", "Votações nominais da Câmara desde 2023."),
+    "votos": ("Câmara dos Deputados", "Voto de cada deputado em cada votação nominal."),
+    "orientacoes": ("Câmara dos Deputados", "Orientação de cada bancada (partidos, Governo, Oposição) em cada votação."),
+    "ceap": ("Câmara dos Deputados", "Cota parlamentar (CEAP) dos deputados: cada despesa, fornecedor e valor, desde 2023."),
+    "proposicoes": ("Câmara dos Deputados", "Projetos apresentados na Câmara desde 2023 (PL, PLP, PEC, PDL, MPV…) e situação atual."),
+    "proposicoes_autores": ("Câmara dos Deputados", "Autores de cada proposição da Câmara."),
+    "proposicoes_temas": ("Câmara dos Deputados", "Temas de cada proposição da Câmara."),
+    "redes_sociais": ("Câmara dos Deputados", "Redes sociais declaradas nos perfis da Câmara."),
+    # Senado
+    "senadores": ("Senado Federal", "Senadores das legislaturas 55 a 57: nome, UF."),
+    "senado_votos": ("Senado Federal", "Voto de cada senador nas votações nominais do plenário."),
+    "ceaps": ("Senado Federal", "Cota parlamentar dos senadores (CEAPS): cada despesa reembolsada, desde 2023."),
+    "senado_proposicoes": ("Senado Federal", "Projetos de senadores da 57ª legislatura (PL, PLP, PEC, PDL, PRS) e situação."),
+    "senado_proposicoes_autores": ("Senado Federal", "Autores (senadores) de cada projeto do Senado."),
+    "senadores_x": ("Senado Federal", "Contas no X (Twitter) dos senadores."),
+    # municípios
+    "municipios": ("Municípios", "Os 5.571 municípios (IBGE) com UF, região e população."),
+    "indicadores_municipio": ("Municípios", "Indicadores por município em formato longo: água, esgoto, favelas (Censo 2022), APS, Ideb, SINISA — cada linha com fonte e período."),
+    "financas_municipio": ("Municípios", "Contas anuais (DCA/SICONFI) por município: receitas, FPM, IPTU/ISS/ITBI, despesa por função."),
+    "siconfi_rreo": ("Municípios", "Relatório Resumido da Execução Orçamentária (RREO) dos estados."),
+    "gazetas": ("Municípios", "Menções a termos (show, contratação artística…) nos diários oficiais municipais (Querido Diário)."),
+    # eleições e empresas
+    "tse_candidatos": ("Eleições e empresas", "Candidaturas (TSE)."),
+    "tse_receitas": ("Eleições e empresas", "Receitas de campanha declaradas ao TSE."),
+    "cnpjs": ("Eleições e empresas", "Cadastro (Receita Federal) das empresas que receberam emendas."),
+    "socios": ("Eleições e empresas", "Quadro societário dessas empresas."),
+    # mídia
+    "media": ("Mídia e redes", "Notícias que citam parlamentares (snapshots diários)."),
+    "trends": ("Mídia e redes", "Buscas em alta (Google Trends) sobre política."),
+    "posts": ("Mídia e redes", "Posts de parlamentares no X."),
+    "x_users": ("Mídia e redes", "Perfis no X de parlamentares."),
+    "youtube_canais": ("Mídia e redes", "Canais de YouTube de deputados e senadores."),
+    "youtube_videos": ("Mídia e redes", "Vídeos desses canais: título, duração, data."),
+    "youtube_stats": ("Mídia e redes", "Visualizações, curtidas e comentários de cada vídeo ao longo do tempo."),
+    "entrevistas": ("Mídia e redes", "Entrevistas (ex.: Roda Viva) com políticos."),
+    "debates": ("Mídia e redes", "Debates presidenciais e eleitorais gravados."),
+    "transcricoes": ("Mídia e redes", "Transcrição em texto de debates e entrevistas (Whisper)."),
+}
+BROWSABLE_TABLES = tuple(TABLE_CATALOG)
+
+_TABLES_CACHE: dict[str, tuple[float, list]] = {}
 
 
 def list_tables(lake: Lake) -> list[dict]:
-    out = []
-    for name in BROWSABLE_TABLES:
-        try:
-            n = lake.q(f"SELECT count(*) AS n FROM {lake.table(name)}")[0]["n"]
-            cols = lake.q(f"SELECT * FROM {lake.table(name)} LIMIT 0")
-            out.append({"tabela": name, "linhas": n,
-                        "colunas": list(cols[0].keys()) if cols else []})
+    """Every published table with group, description, row count and
+    column names/types. Cached for an hour (the lake changes daily)."""
+    import time
+    hit = _TABLES_CACHE.get(lake.base)
+    if hit and time.monotonic() - hit[0] < 3600:
+        return hit[1]
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(item):
+        name, (grupo, descricao) = item
+        try:  # Parquet footers only: row count and schema, no data scan
+            cur = lake.con.cursor()
+            n = cur.execute(
+                f"SELECT count(*) FROM {lake.table(name)}").fetchone()[0]
+            cols = cur.execute(
+                f"DESCRIBE SELECT * FROM {lake.table(name)}").fetchall()
         except Exception:
-            continue
+            return None
+        return {"tabela": name, "grupo": grupo, "descricao": descricao,
+                "linhas": n, "colunas": [c[0] for c in cols],
+                "tipos": [c[1] for c in cols]}
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        out = [r for r in pool.map(one, TABLE_CATALOG.items()) if r]
+    _TABLES_CACHE[lake.base] = (time.monotonic(), out)
     return out
 
 
@@ -466,7 +685,9 @@ def sample_table(lake: Lake, name: str, limit: int = 50) -> dict:
     if name not in BROWSABLE_TABLES:
         return {}
     rows = lake.q(f"SELECT * FROM {lake.table(name)} LIMIT ?", [limit])
-    return {"tabela": name, "amostra": rows}
+    grupo, descricao = TABLE_CATALOG[name]
+    return {"tabela": name, "grupo": grupo, "descricao": descricao,
+            "amostra": rows}
 
 
 def busca(lake: Lake, q: str, limit: int = 10) -> dict:
@@ -474,19 +695,24 @@ def busca(lake: Lake, q: str, limit: int = 10) -> dict:
     pattern = f"%{q.upper()}%"
     return {
         "politicos": lake.q(f"""
-            SELECT id AS deputado_id, NULL AS senador_id, nome,
-                   max_by(partido, legislatura) AS partido,
-                   max_by(uf, legislatura) AS uf, 'camara' AS casa
-            FROM {lake.table('deputados')}
-            WHERE upper(strip_accents(nome)) LIKE strip_accents(?)
-            GROUP BY 1, 2, 3
-            UNION ALL
-            SELECT NULL, codigo, any_value(nome_parlamentar),
-                   NULL, max_by(uf, legislatura), 'senado'
-            FROM {lake.table('senadores')}
-            WHERE upper(strip_accents(nome_parlamentar)) LIKE strip_accents(?)
-               OR upper(strip_accents(nome_completo)) LIKE strip_accents(?)
-            GROUP BY 2
+            SELECT * FROM (
+                SELECT id AS deputado_id, NULL::BIGINT AS senador_id,
+                       max_by(nome, legislatura) AS nome,
+                       max_by(partido, legislatura) AS partido,
+                       max_by(uf, legislatura) AS uf, 'camara' AS casa,
+                       max(legislatura) AS ultima_legislatura
+                FROM {lake.table('deputados')}
+                WHERE upper(strip_accents(nome)) LIKE strip_accents(?)
+                GROUP BY id
+                UNION ALL
+                SELECT NULL, codigo, max_by(nome_parlamentar, legislatura),
+                       NULL, max_by(uf, legislatura), 'senado',
+                       max(legislatura)
+                FROM {lake.table('senadores')}
+                WHERE upper(strip_accents(nome_parlamentar)) LIKE strip_accents(?)
+                   OR upper(strip_accents(nome_completo)) LIKE strip_accents(?)
+                GROUP BY codigo)
+            ORDER BY ultima_legislatura DESC, nome
             LIMIT ?""", [pattern, pattern, pattern, limit]),
         "municipios": lake.q(f"""
             SELECT codigo_ibge, nome, uf, populacao
