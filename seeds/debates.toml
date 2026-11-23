@@ -1,0 +1,96 @@
+# Election debates — hand-curated seed for `caramelo harvest debates`.
+#
+# Every entry is a debate *event*; `fontes` lists recordings of it (YouTube
+# or any URL yt-dlp understands). Several mirrors are welcome: old uploads
+# disappear, and `archive debates` tries them in order.
+#
+# status: "verificar" until date/broadcaster/participants are checked
+# against a primary source (TSE, broadcaster archive, press of the day);
+# then "ok". Participants are names as the candidates ran (nome de urna);
+# they are resolved to TSE sq_candidato later.
+#
+# id convention: <ano>-<cargo>-<uf>-t<turno>-<emissora-slug>[-n]
+
+[[debate]]
+id = "1989-presidente-br-t2-pool-2"
+ano = 1989
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "pool (Globo, Bandeirantes, Manchete, SBT)"
+data = "1989-12-14"
+participantes = ["Fernando Collor", "Lula"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2018-presidente-br-t1-band"
+ano = 2018
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2018-08-09"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2018-presidente-br-t1-globo"
+ano = 2018
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2018-10-04"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t1-band"
+ano = 2022
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band (pool com TV Cultura, Folha, UOL)"
+data = "2022-08-28"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t1-globo"
+ano = 2022
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2022-09-29"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t2-band"
+ano = 2022
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band (pool)"
+data = "2022-10-16"
+participantes = ["Lula", "Jair Bolsonaro"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t2-globo"
+ano = 2022
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2022-10-28"
+participantes = ["Lula", "Jair Bolsonaro"]
+fontes = []
+status = "verificar"

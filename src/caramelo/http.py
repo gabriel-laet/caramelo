@@ -28,10 +28,15 @@ def get(url: str, *, params: dict | None = None, headers: dict | None = None,
             if resp.status_code in RETRY_STATUSES:
                 last = httpx.HTTPStatusError(
                     f"HTTP {resp.status_code}", request=resp.request, response=resp)
+            elif resp.is_error:
+                # other 4xx won't change on retry (bad key, bad request, 404)
+                raise RuntimeError(f"GET {url} failed: HTTP {resp.status_code}") \
+                    from httpx.HTTPStatusError(f"HTTP {resp.status_code}",
+                                               request=resp.request,
+                                               response=resp)
             else:
-                resp.raise_for_status()
                 return resp
-        except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+        except httpx.TransportError as exc:
             last = exc
         time.sleep(delay)
         delay *= 2

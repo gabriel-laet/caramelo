@@ -5,3 +5,4 @@ dist/
 .venv/
 data/
 node_modules/
+archive/

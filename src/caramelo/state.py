@@ -14,8 +14,15 @@ from pathlib import Path
 SEED_TABLES = ("posts", "x_users", "media", "senadores_x", "gazetas",
                "tse_candidatos", "tse_receitas", "trends", "cnpjs", "socios",
                # incremental (financas fills gaps per run) / carry-forward
-               "financas_municipio", "indicadores_municipio")
-STATE_FILES = ("x_cursor.json", "siconfi_cursor.json")
+               "financas_municipio", "indicadores_municipio",
+               # append-only social/video history
+               "youtube_canais", "youtube_videos", "youtube_stats",
+               "instagram_contas", "instagram_posts",
+               # built on the local network (NAS archive) and published from
+               # there; the cloud run must carry them forward untouched
+               "manchetes", "gdelt_timeline")
+STATE_FILES = ("x_cursor.json", "siconfi_cursor.json",
+               "youtube_backfill.json")
 
 
 def seed(data_dir: Path, target) -> None:

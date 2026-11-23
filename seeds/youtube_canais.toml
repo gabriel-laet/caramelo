@@ -1,0 +1,13 @@
+# YouTube channel overrides for `caramelo harvest youtube`.
+#
+# Senators: the Senado API publishes no social accounts, so their channels
+# enter here. Also use it to fix a deputy's declared channel (an override
+# replaces the declared one for that person).
+#
+# canal: channel id (UC...), @handle, or any youtube.com channel URL.
+#
+# [[canal]]
+# casa = "senado"            # camara | senado
+# parlamentar_id = 0         # Câmara deputado id / Senado codigo
+# nome = "..."
+# canal = "@handle"

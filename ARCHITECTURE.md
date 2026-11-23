@@ -139,3 +139,28 @@ only when consumers demand it.
 - Editorial content, case dossiês — product layer
 - Anything requiring a political opinion — Caramelo stays neutral so its data
   is citable by anyone (press, academia, either side of the aisle)
+
+## Local archive tier (video, transcripts, zeitgeist)
+
+Some sources can't run in the cloud cron: YouTube and Instagram bot-check
+datacenter IPs, Whisper needs a GPU, and raw media or full transcripts of
+third-party recordings must not land in the public lake. Those steps run on
+the local network and write to a separate **archive root** (a NAS mount,
+`$CARAMELO_ARCHIVE_DIR`). `publish` only globs `data_dir/*.parquet`, so
+nothing in the archive is published unless a step derives a public-safe
+table from it.
+
+| Step | Where | Writes |
+|------|-------|--------|
+| `harvest youtube` | cloud or local (API key) | `youtube_canais`, `youtube_videos`, `youtube_stats` |
+| `harvest instagram` | cloud or local (Graph token) | `instagram_contas`, `instagram_posts` |
+| `harvest debates` | anywhere (seed file) | `debates` |
+| `harvest gdelt` | anywhere | `gdelt_timeline` |
+| `harvest manchetes` | local | raw pages → archive; `manchetes` (headlines only) |
+| `archive youtube\|instagram\|debates` | local | captions, audio, info.json → archive |
+| `transcribe [--whisper]` | local GPU | per-item JSON → `archive/transcricoes.parquet` |
+
+Tables built locally are published from the local machine and carried
+forward by the cloud run through `state.SEED_TABLES`.
+Seeds that need human curation live in `seeds/` (debates, channel and
+account overrides, zeitgeist outlets and GDELT themes).
