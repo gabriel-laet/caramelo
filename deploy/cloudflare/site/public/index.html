@@ -235,6 +235,12 @@
   .ctx .chipx b { color: var(--text); font-weight: 600; }
   .ctx .grow { flex: 1; }
   .ctx .tray { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  .gh { color: var(--text-2); display: inline-flex; padding: .3rem; border-radius: 999px; }
+  .gh:hover { color: var(--text); background: var(--surface-2); }
+  .ai { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: .12rem .6rem; font-size: .8rem; cursor: pointer; white-space: nowrap; }
+  .ai:hover { border-color: var(--accent); color: var(--accent); }
+  .toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--surface); padding: .6rem 1rem; border-radius: 10px; font-size: .88rem; max-width: min(92vw, 34rem); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  @media (max-width: 720px) { .toast { bottom: 5rem; } }
   .results .hd { padding: .45rem .85rem .2rem; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: var(--surface-2); }
   /* ---------- guided start ---------- */
   .start { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin: .4rem 0 1rem; }
@@ -280,6 +286,7 @@
   <a class="brand" href="#/">🐕 Caramelo</a>
   <nav class="main" id="nav" aria-label="Seções">
     <a href="#/" data-r="">Mapa</a>
+    <a href="#/simulador" data-r="simulador">Simulador</a>
     <a href="#/pessoas" data-r="pessoas">Pessoas</a>
     <a href="#/projetos" data-r="projetos">Projetos</a>
     <a href="#/dados" data-r="dados">Dados</a>
@@ -288,6 +295,7 @@
     <input id="q" type="search" placeholder="Busque cidade, parlamentar, projeto, indicador ou tabela…" autocomplete="off" aria-label="Buscar em tudo">
     <div id="results" class="results" hidden></div>
   </div>
+  <a class="gh" href="https://github.com/gabriel-laet/caramelo" target="_blank" rel="noopener" aria-label="Código no GitHub" title="Código aberto no GitHub"><svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
 </div>
 <div class="ctx" id="ctx"></div></div>
 
@@ -297,6 +305,7 @@
   Dados públicos oficiais (IBGE, Tesouro/SICONFI, Ministério da Saúde, Inep, SINISA, Câmara, Senado, Portal da Transparência)
   via <a href="https://api.caramelo.dev.br/docs">API Caramelo</a> · <a href="/docs/data.md">documentação e fontes</a>.
   Neutro por construção: o Caramelo mostra os dados e os critérios declarados, nunca rótulos de bom ou ruim.
+  Código aberto (MIT) no <a href="https://github.com/gabriel-laet/caramelo">GitHub</a> · <a href="/desenvolvedores">para desenvolvedores</a>.
 </footer>
 <div class="tip" id="tip" hidden></div>
 
@@ -451,8 +460,46 @@ function setCtx(crumbs = [], opt = {}) {
   lastCtx = [crumbs, opt];
   const cs = crumbs.map(([l, h], i) => h && i < crumbs.length - 1 ? `<a href="${h}">${esc(l)}</a>` : `<span class="cur">${esc(l)}</span>`).join('<span class="sep">›</span>');
   const uf = opt.uf ? `<select id="ctxuf" aria-label="Estado"><option value="">Brasil inteiro</option>${UF_SIGLAS.map(x => `<option ${x === opt.uf.value ? "selected" : ""}>${x}</option>`).join("")}</select>` : "";
-  ctxEl.innerHTML = cs + (uf ? (cs ? '<span class="sep">·</span>' : "") + uf : "") + (opt.chips || "") + '<span class="grow"></span>' + trayHtml();
+  ctxEl.innerHTML = cs + (uf ? (cs ? '<span class="sep">·</span>' : "") + uf : "") + (opt.chips || "") + '<span class="grow"></span>' + trayHtml()
+    + `<button class="ai" id="aibtn" title="Copia um prompt pronto, com links para os dados, para colar no ChatGPT, Claude, Gemini…">✦ Perguntar a uma IA</button>`;
   if (opt.uf) document.getElementById("ctxuf").onchange = e => opt.uf.onChange(e.target.value);
+  document.getElementById("aibtn").onclick = () => copyPrompt(opt.ai);
+}
+// ---------------------------------------------------------------- AI prompt
+// A copy-paste prompt that lets any chat assistant query the open lake
+// itself (DuckDB over HTTPS) with the context of the current page.
+const LAKE = "https://data.caramelo.dev.br/latest";
+function aiPrompt(ctx = "") {
+  return `Você vai me ajudar a explorar dados públicos brasileiros do Caramelo (https://caramelo.dev.br), uma base aberta e neutra com fontes oficiais.
+
+Como acessar os dados:
+- Cada tabela é um arquivo Parquet público: ${LAKE}/<tabela>.parquet (lista e contagens em ${LAKE}/manifest.json).
+- Documentação das tabelas, colunas e junções: https://caramelo.dev.br/docs/data.md e https://caramelo.dev.br/llms.txt
+- API REST com consultas prontas: https://api.caramelo.dev.br/docs (ex.: /municipios/{codigo_ibge}, /politicos/{id}, /senadores/{id}, /emendas/autores?casa=camara|senado, /painel).
+- Se você puder executar código, use DuckDB direto nas URLs, ex.:
+  SELECT nome_autor, sum(valor_pago) FROM '${LAKE}/emendas.parquet' WHERE ano >= 2023 GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
+- Se não puder executar código, leia a documentação e me entregue as consultas SQL prontas para eu rodar em https://shell.duckdb.org.
+
+Tabelas principais: emendas (Portal da Transparência), favorecidos (quem recebeu), emendas_recebidas_municipio, pix_beneficiarios, municipios, indicadores_municipio (água, esgoto, Ideb, APS, favelas), financas_municipio (SICONFI), deputados, votos, orientacoes, ceap, proposicoes (Câmara), senadores, senado_votos, ceaps, senado_proposicoes (Senado), autores_crosswalk (liga autor de emenda a deputado/senador), youtube_videos, posts, transcricoes, debates.
+
+Regras:
+- Separe sempre Câmara e Senado. Diga a fonte, o período e a tabela de cada número.
+- Seja neutro: descreva os dados e as limitações (ex.: muitas emendas aparecem como "MÚLTIPLO", sem município), sem juízo de bom ou ruim.
+- Se um dado não existir na base, diga isso em vez de estimar.
+${ctx ? "\nContexto da página em que estou:\n" + ctx + "\n" : ""}
+Minha pergunta: `;
+}
+async function copyPrompt(ctx) {
+  const text = aiPrompt(typeof ctx === "function" ? ctx() : ctx);
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch {}
+  if (!ok) { const ta = Object.assign(document.createElement("textarea"), {value: text}); document.body.append(ta); ta.select(); try { ok = document.execCommand("copy"); } catch {} ta.remove(); }
+  toast(ok ? "Prompt copiado. Cole no ChatGPT, Claude ou Gemini e escreva sua pergunta no final." : "Não deu para copiar automaticamente; o prompt está em Dados › Para desenvolvedores.");
+}
+function toast(msg) {
+  document.querySelector(".toast")?.remove();
+  const t = Object.assign(document.createElement("div"), {className: "toast", textContent: msg, role: "status"});
+  document.body.append(t); setTimeout(() => t.remove(), 4500);
 }
 // comparison tray: pick people from their profiles, compare any two
 const TRAY_KEY = "caramelo.comparar";
@@ -535,6 +582,7 @@ async function viewHome(params = new URLSearchParams()) {
   const ctx = () => {
     const l = LAYERS.find(x => x.key === home.layer);
     setCtx([["Mapa"]], {uf: {value: home.uf, onChange: v => { home.uf = v; home.top = 10; map.zoomUF(v); sync(); paint(); }},
+      ai: () => `Estou no mapa de municípios, indicador "${layerLabel(l)}"${home.uf ? `, estado ${home.uf}` : ", Brasil inteiro"}. Todos os indicadores do mapa, um município por linha: https://api.caramelo.dev.br/painel (coluna ${l.key.startsWith("sim:") ? "—" : l.key}).`,
       chips: `<span class="sep">·</span><span class="chipx">Indicador: <b>${esc(layerLabel(l))}</b></span>`});
   };
   document.getElementById("layers").onclick = e => { const k = e.target.dataset.k; if (k) { home.layer = k; home.top = 10; sync(); paint(); } };
@@ -687,7 +735,7 @@ async function viewMunicipio(cod) {
   const tot = k => anos.filter(a => a.ano >= 2023).reduce((s, a) => s + (a[k] || 0), 0);
   const fin = (m.financas || []).at(-1);
   const sameUF = r => r.uf === m.uf;
-  setCtx([["Mapa", "#/"], [m.uf, "#/?uf=" + m.uf], [m.nome]]);
+  setCtx([["Mapa", "#/"], [m.uf, "#/?uf=" + m.uf], [m.nome]], {ai: `Município: ${m.nome} (${m.uf}), código IBGE ${cod}. Resumo pronto: https://api.caramelo.dev.br/municipios/${cod} e https://api.caramelo.dev.br/emendas/municipio/${cod}. Nas tabelas, filtre por codigo_ibge_municipio / cod_ibge / codigo_ibge = '${cod}'.`});
   view.innerHTML = `
     <h1>${esc(m.nome)} <span class="pill">${esc(m.uf)}</span></h1>
     <p class="lede">${esc(m.regiao || "")} · ${nf(row.populacao || m.populacao)} habitantes (Censo 2022)</p>
@@ -802,7 +850,7 @@ async function viewPolitico(id) {
   const g = p.governismo;
   const govSorted = gov.map(x => x.governismo).sort((a, b) => a - b);
   const party = gov.filter(x => x.partido === p.partido).map(x => x.governismo).sort((a, b) => a - b);
-  setCtx([["Pessoas", "#/pessoas"], ["Câmara dos Deputados", "#/pessoas/camara"], [p.nome]]);
+  setCtx([["Pessoas", "#/pessoas"], ["Câmara dos Deputados", "#/pessoas/camara"], [p.nome]], {ai: `Deputado(a) federal ${p.nome} (${p.partido || "?"}/${p.uf || "?"}), id na Câmara ${id}. Perfil: https://api.caramelo.dev.br/politicos/${id}. Emendas: junte emendas.nome_autor com autores_crosswalk onde deputado_id = ${id}; votos: votos.deputado_id = ${id}; cota: ceap.deputado_id = ${id}; projetos: proposicoes_autores.id_deputado = ${id}.`});
   view.innerHTML = `
     <h1>${esc(p.nome)}${casaPill("camara")} <span class="pill">${esc(p.partido || "")} · ${esc(p.uf || "")}</span> ${cmpButton("d", id, p.nome)}</h1>
     <p class="lede">${(p.legislaturas || []).includes(LEG_ATUAL) ? "Deputado(a) federal" : "Ex-deputado(a) federal"} · legislaturas ${esc((p.legislaturas || []).sort().join(", "))}${p.senador_id ? ` · <a href="#/s/${p.senador_id}">também tem mandato no Senado →</a>` : ""}${(p.redes || []).length ? " · " + p.redes.map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.rede)}</a>`).join(" · ") : ""}</p>
@@ -841,7 +889,7 @@ async function viewSenador(id) {
   const votos = p.votos || [], nv = votos.reduce((s, x) => s + x.n, 0);
   const presentes = votos.filter(v => v.tipo !== "Ausente ou licenciado").reduce((s, x) => s + x.n, 0);
   const atual = (p.legislaturas || []).includes(LEG_ATUAL);
-  setCtx([["Pessoas", "#/pessoas"], ["Senado Federal", "#/pessoas/senado"], [titleCase(p.nome)]]);
+  setCtx([["Pessoas", "#/pessoas"], ["Senado Federal", "#/pessoas/senado"], [titleCase(p.nome)]], {ai: `Senador(a) ${p.nome} (${p.uf || "?"}), código no Senado ${id}. Perfil: https://api.caramelo.dev.br/senadores/${id}. Emendas: autores_crosswalk.senador_id = ${id}; votos: senado_votos.senador_id = ${id}; projetos: senado_proposicoes_autores.codigo_senador = ${id}; cota: ceaps (por nome).`});
   view.innerHTML = `
     <h1>${esc(titleCase(p.nome))}${casaPill("senado")} <span class="pill">${esc(p.uf || "")}</span> ${cmpButton("s", id, titleCase(p.nome))}</h1>
     <p class="lede">${atual ? "Senador(a)" : "Ex-senador(a)"} · legislaturas ${esc((p.legislaturas || []).join(", "))}${p.nome_completo && p.nome_completo.toUpperCase() !== String(p.nome).toUpperCase() ? ` · ${esc(titleCase(p.nome_completo))}` : ""}${p.deputado_id ? ` · <a href="#/p/${p.deputado_id}">também tem mandato na Câmara →</a>` : ""}</p>
@@ -880,7 +928,7 @@ async function viewProposicao(id) {
   catch (e) { return fail(e, "o projeto"); }
   const sim = props.find(p => p.proposicao_id === +id);
   const sigla = `${b.sigla_tipo} ${b.numero}/${b.ano}`;
-  setCtx([["Projetos", "#/projetos"], ["Câmara", "#/projetos"], [sigla]]);
+  setCtx([["Projetos", "#/projetos"], ["Câmara", "#/projetos"], [sigla]], {ai: `Projeto da Câmara ${sigla} (id ${id}): ${trim(b.ementa, 300)}. Detalhes: https://api.caramelo.dev.br/proposicoes/${id}. Votações: votacoes.proposicao_id = ${id}.`});
   view.innerHTML = `
     <h1>${esc(sigla)}</h1>
     <p class="lede">${esc(b.ementa)}</p>
@@ -982,7 +1030,7 @@ async function viewSimulador(pid) {
           return `<span class="k">${s === "atende" ? "✓" : s === "nao_atende" ? "✕" : "?"} ${esc(c.id)}</span> <span class="v">${v == null ? "sem dado" : nf(v, 1)}</span>`; }).join("<br>"));
     },
     onClick: cod => { location.hash = "#/m/" + cod; }});
-  setCtx([["Mapa", "#/"], ["Simulações", "#/?camada=sim:" + pid], [prop.titulo]], {uf: {value: state.uf, onChange: v => { state.uf = v; map.zoomUF(v); render(); }}});
+  setCtx([["Simulador", "#/simulador"], [prop.titulo]], {uf: {value: state.uf, onChange: v => { state.uf = v; map.zoomUF(v); render(); }}, ai: `Simulação do ${prop.titulo} (${prop.ementa}). Resultado por município e critério: https://api.caramelo.dev.br/simulador/${pid} (limiares ajustáveis com ?limiares=agua=85,ideb=6.5). Critérios não mensuráveis e notas de método vêm na resposta.`});
   let data = null, crit = [];
   const status = (c, v) => v == null ? "sem_dado" : (c.op === ">=" ? v >= c.atual : c.op === ">" ? v > c.atual : c.op === "<=" ? v <= c.atual : v < c.atual) ? "atende" : "nao_atende";
   const evaluate = m => {
@@ -1173,7 +1221,7 @@ async function viewComparar() {
 // ================================================================ TABELAS
 let TABELAS = null;
 async function tabelas() { return TABELAS || (TABELAS = await get("/tabelas")); }
-const DADOS_TABS = [["", "Tabelas"], ["panoramas", "Panoramas"], ["dev", "Para desenvolvedores"]];
+const DADOS_TABS = [["", "Tabelas"], ["panoramas", "Panoramas"], ["dev", "IA e desenvolvedores"]];
 const PANORAMAS = {categorias: RANKS.categorias, recebedores: RANKS.favorecidos, detector: RANKS.detector};
 function dadosHead(tab) {
   return `<h1>Dados</h1><nav class="stabs">${DADOS_TABS.map(([k, l]) => `<a class="${k === tab ? "on" : ""}" href="#/dados${k ? "/" + k : ""}">${l}</a>`).join("")}</nav>`;
@@ -1188,18 +1236,23 @@ async function viewDados(tab, sub, params) {
     return;
   }
   if (tab === "dev") {
-    setCtx([["Dados", "#/dados"], ["Para desenvolvedores"]]);
+    setCtx([["Dados", "#/dados"], ["IA e desenvolvedores"]]);
     view.innerHTML = dadosHead("dev") + `<div class="grid g2">
       <div class="card"><h3>Lake aberto</h3><p>Cada tabela é um arquivo Parquet público, atualizado todo dia, consultável direto da URL com DuckDB, Polars ou pandas. <a href="https://data.caramelo.dev.br/latest/manifest.json">manifest.json</a> lista tabelas, linhas e datas.</p>
         <pre class="sql" style="margin-top:.6rem">SELECT nome_autor, sum(valor_pago) AS pago
 FROM 'https://data.caramelo.dev.br/latest/emendas.parquet'
 WHERE is_transferencia_especial AND ano >= 2023
 GROUP BY 1 ORDER BY 2 DESC LIMIT 10;</pre></div>
+      <div class="card" style="grid-column:1/-1"><h3>Explorar com uma IA</h3><p>Copie este prompt e cole no ChatGPT, Claude, Gemini ou outro assistente; escreva sua pergunta no final. Em qualquer página, o botão <b>✦ Perguntar a uma IA</b> copia o mesmo prompt com o contexto daquela página (município, parlamentar, tabela…).</p>
+        <textarea id="aiprompt" readonly style="width:100%;min-height:14rem;margin-top:.6rem;font:inherit;font-size:.8rem;border:1px solid var(--line);border-radius:8px;padding:.6rem;background:var(--surface-2);color:var(--text)"></textarea>
+        <button class="chip" id="aicopy" style="margin-top:.5rem">Copiar prompt</button></div>
       <div class="card"><h3>API, agentes e eventos</h3><ul class="plain">
         <li><a href="https://api.caramelo.dev.br/docs">API REST</a> (as mesmas consultas deste site) e servidor MCP em <code>mcp.caramelo.dev.br</code></li>
         <li><a href="/llms.txt">llms.txt</a> para agentes de IA</li>
         <li><a href="/docs/data.md">Documentação das tabelas e junções</a> · <a href="/docs/events.md">eventos e webhooks</a></li>
         <li><a href="/desenvolvedores">Como o Caramelo funciona</a> (fontes, pipeline, licença) · <a href="https://github.com/gabriel-laet/caramelo">código no GitHub</a></li></ul></div></div>`;
+    document.getElementById("aiprompt").value = aiPrompt();
+    document.getElementById("aicopy").onclick = () => copyPrompt();
     return;
   }
   setCtx([["Dados", "#/dados"], ["Tabelas"]]);
@@ -1228,7 +1281,7 @@ async function viewTabela(name) {
     const rows = d.amostra || [], cols = rows.length ? Object.keys(rows[0]) : meta.colunas;
     const url = `https://data.caramelo.dev.br/latest/${name}.parquet`;
     const fmtCell = v => v == null ? '<span class="note">—</span>' : esc(typeof v === "object" ? JSON.stringify(v) : String(v)).slice(0, 120);
-    setCtx([["Dados", "#/dados"], [d.grupo || meta.grupo || "Tabelas", "#/dados"], [name]]);
+    setCtx([["Dados", "#/dados"], [d.grupo || meta.grupo || "Tabelas", "#/dados"], [name]], {ai: `Quero explorar a tabela ${name} (${d.descricao || meta.descricao || ""}): ${LAKE}/${name}.parquet. Colunas: ${(meta.colunas || []).map((c, i) => c + " " + (meta.tipos?.[i] || "")).join(", ")}.`});
     view.innerHTML = `<h1><code>${esc(name)}</code></h1>
       <p class="lede">${esc(d.descricao || meta.descricao || "")}</p>
       <div class="tiles"><div class="tile"><b>${meta.linhas != null ? nf(meta.linhas) : "—"}</b><span>linhas</span></div><div class="tile"><b>${nf(cols.length)}</b><span>colunas</span></div>
@@ -1323,7 +1376,7 @@ function route() {
   if (top === "tabelas") return location.replace("#/dados");
   if (top === "compare") return location.replace("#/comparar");
   if (top === "rankings") return location.replace(LEGACY_RANKS[parts[1]] || "#/pessoas");
-  const section = {m: "", simulador: "", p: "pessoas", s: "pessoas", comparar: "pessoas", b: "projetos", t: "dados"}[top] ?? top;
+  const section = {m: "", p: "pessoas", s: "pessoas", comparar: "pessoas", b: "projetos", t: "dados"}[top] ?? top;
   document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === section));
   window.scrollTo(0, 0);
   ctxEl.innerHTML = "";
