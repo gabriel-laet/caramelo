@@ -588,6 +588,9 @@ PAINEL_METRICAS: dict[str, tuple[str, str]] = {
     "populacao": ("População (Censo 2022)", "pessoas"),
     "pix_per_capita": ("Emendas Pix por habitante (2023+)", "R$/hab"),
     "emendas_per_capita": ("Todas as emendas por habitante (2023+)", "R$/hab"),
+    "recebido_prefeitura_per_capita": (
+        "Emendas recebidas pela prefeitura por habitante (2023+)",
+        "R$/hab"),
     "fpm_pct_receita": ("FPM sobre a receita total (DCA)", "%"),
     "impostos_proprios_pct_receita": ("IPTU + ISS + ITBI sobre a receita (DCA)", "%"),
     "cultura_per_capita": ("Despesa com Cultura por habitante (DCA)", "R$/hab"),
@@ -631,6 +634,12 @@ def _painel(lake: Lake) -> dict:
                      GROUP BY 1)"""
     else:  # gazetas not published yet
         shows = "(SELECT NULL::VARCHAR AS cod_ibge, NULL::BIGINT AS n WHERE false)"
+    if lake.has("emendas_recebidas_municipio"):
+        recebido = f"""(SELECT cod_ibge, sum(valor_recebido) AS valor
+                        FROM {lake.table('emendas_recebidas_municipio')}
+                        WHERE ano >= 2023 GROUP BY 1)"""
+    else:  # not published yet: the column stays null
+        recebido = "(SELECT NULL::VARCHAR AS cod_ibge, NULL::DOUBLE AS valor WHERE false)"
     fpm = simulador.METRICAS["fpm_pct_receita"][0]
     imp = simulador.METRICAS["impostos_proprios_pct_receita"][0]
     rows = lake.con.cursor().execute(f"""
@@ -643,11 +652,13 @@ def _painel(lake: Lake) -> dict:
             FROM {lake.emendas()}
             WHERE ano >= 2023 AND codigo_ibge_municipio IS NOT NULL
             GROUP BY 1),
+        rc AS {recebido},
         sh AS {shows}
         SELECT p.cod_ibge, p.nome, p.uf,
                pop::BIGINT AS populacao,
                round(coalesce(em.pix, 0) / nullif(pop, 0), 2),
                round(coalesce(em.emendas, 0) / nullif(pop, 0), 2),
+               round(rc.valor / nullif(pop, 0), 2),
                round(({fpm})::DOUBLE, 1), round(({imp})::DOUBLE, 1),
                round(p.despesa_cultura / nullif(pop, 0), 2),
                round(p.agua_rede_censo2022_pct, 1),
@@ -657,11 +668,13 @@ def _painel(lake: Lake) -> dict:
                p.dca_exercicio
         FROM (SELECT *, coalesce(populacao_censo2022, populacao_estimada) AS pop
               FROM p) p
-        LEFT JOIN em USING (cod_ibge) LEFT JOIN sh USING (cod_ibge)
+        LEFT JOIN em USING (cod_ibge) LEFT JOIN rc USING (cod_ibge)
+        LEFT JOIN sh USING (cod_ibge)
         ORDER BY p.cod_ibge""").fetchall()
     cols = ["cod_ibge", "nome", "uf", *PAINEL_METRICAS, "dca_exercicio"]
     faltando = [t for t in ("indicadores_municipio", "financas_municipio",
-                            "gazetas") if not lake.has(t)]
+                            "emendas_recebidas_municipio", "gazetas")
+                if not lake.has(t)]
     return {
         "faltando": faltando,
         # where Pix money is placed: TransfereGov beneficiaries, or only the
@@ -678,6 +691,11 @@ def _painel(lake: Lake) -> dict:
             "Emendas Pix: o Portal registra a maior parte como “MÚLTIPLO”; "
             "o destino vem dos planos de ação do TransfereGov (beneficiário "
             "declarado), com o valor do Portal rateado entre eles.",
+            "Emendas pagas à prefeitura: valores efetivamente recebidos "
+            "(pagos) desde 2023 pela prefeitura e seus fundos municipais "
+            "(saúde, assistência etc.), de todos os tipos de emenda, pelo "
+            "arquivo de favorecidos do Portal da Transparência. Exclui "
+            "repasses a empresas, entidades e governos estaduais.",
             "FPM, impostos próprios e cultura: último DCA (SICONFI) "
             "disponível por município; cobertura cresce a cada dia.",
             "Shows no diário: menções a contratação de show/artística no "

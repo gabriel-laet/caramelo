@@ -40,6 +40,7 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 | `senado_proposicoes` | ~3.4k | Senado `/processo` API: PL, PLP, PEC, PDL, PRS authored by senators of the 57th legislature | daily |
 | `senado_proposicoes_autores` | ~7.7k | (processo, senador) authorship pairs | daily |
 | `pix_beneficiarios` | ~58k | derived from TransfereGov planos de ação (`pix_planos_acao`): one row per (emenda Pix, beneficiary) with the beneficiary resolved to an IBGE code | daily |
+| `emendas_recebidas_municipio` | ~116k | derived from `favorecidos`: emenda money received (paid) by each município's own administration (prefeitura, fundos municipais, municipal autarquias), one row per município × payment year × emenda type × legal nature | daily |
 
 ## Key columns and joins
 
@@ -61,6 +62,12 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
   the Portal's Pix `valor_empenhado` per year; `IMPEDIDO*` plans were
   blocked. The API prorates each emenda's Portal values by
   `valor_total` share.
+- Non-Pix emendas are also mostly `MÚLTIPLO`. `emendas_recebidas_municipio`
+  places the money that reached the município's own administration, from
+  the Portal's per-recipient file: `cod_ibge` joins `municipios.codigo_ibge`,
+  `ano` is the payment year, `valor_recebido` is paid (not empenhado).
+  Payments to companies, NGOs and state governments are left out, since
+  their address is not where the money was spent.
 - `indicadores_municipio.cod_ibge` and `financas_municipio.cod_ibge` join
   `municipios.codigo_ibge`. Every indicator row carries `referencia`
   (period), `fonte` and `url`. Pivot with

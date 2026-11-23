@@ -351,7 +351,7 @@ function showTip(ev, html) {
 // ---------------------------------------------------------------- layers
 const LAYERS = [
   {grp: "Dinheiro federal", key: "pix_per_capita"},
-  {grp: "Dinheiro federal", key: "emendas_per_capita"},
+  {grp: "Dinheiro federal", key: "recebido_prefeitura_per_capita"},
   {grp: "Finanças do município", key: "fpm_pct_receita"},
   {grp: "Finanças do município", key: "impostos_proprios_pct_receita"},
   {grp: "Finanças do município", key: "cultura_per_capita"},
@@ -386,7 +386,7 @@ async function viewHome() {
       </div>
       <div class="side">
         <div class="card"><h3>Camada</h3><div class="layers" id="layers">${groups.map(g => `<div class="grp">${g}</div>` +
-          LAYERS.filter(l => l.grp === g).map(l => `<button data-k="${l.key}">${esc(l.label || PAINEL.metricas[l.key].label)}</button>`).join("")).join("")}</div></div>
+          LAYERS.filter(l => l.grp === g && (l.label || PAINEL.metricas[l.key])).map(l => `<button data-k="${l.key}">${esc(l.label || PAINEL.metricas[l.key].label)}</button>`).join("")).join("")}</div></div>
         <div class="card" id="layerinfo"></div>
       </div>
     </div>
@@ -461,7 +461,8 @@ async function viewHome() {
       <span><i class="sw nd"></i>sem dado</span>
       ${home.layer === "pix_per_capita" ? `<span class="note" style="flex-basis:100%">${PAINEL.pixAtrib === "transferegov"
         ? "Destino das emendas Pix: beneficiário declarado nos planos de ação do TransfereGov (o Portal da Transparência registra a maior parte como “MÚLTIPLO”). Transferências a governos estaduais não aparecem no mapa."
-        : "Atenção: ~93% do valor das emendas Pix desde 2023 aparece como “MÚLTIPLO” no Portal da Transparência, sem município. Este mapa mostra só a parte atribuída a um município."}</span>` : ""}`;
+        : "Atenção: ~93% do valor das emendas Pix desde 2023 aparece como “MÚLTIPLO” no Portal da Transparência, sem município. Este mapa mostra só a parte atribuída a um município."}</span>` : ""}
+      ${home.layer === "recebido_prefeitura_per_capita" ? `<span class="note" style="flex-basis:100%">Valores pagos desde 2023 à prefeitura e aos fundos municipais (saúde, assistência, educação…), somando todos os tipos de emenda, pelo arquivo de favorecidos do Portal da Transparência. Não inclui repasses a empresas, entidades ou ao governo do estado.</span>` : ""}`;
     const scope = PAINEL.rows.filter(inUF);
     const withVal = scope.filter(r => r[home.layer] != null);
     const sv = withVal.map(r => r[home.layer]).sort((a, b) => a - b);
@@ -519,7 +520,7 @@ function barRows(rows, label, value, fmt) {
 }
 
 // ================================================================ MUNICÍPIO
-const DIST_KEYS = ["pix_per_capita", "emendas_per_capita", "fpm_pct_receita", "impostos_proprios_pct_receita", "cultura_per_capita",
+const DIST_KEYS = ["pix_per_capita", "recebido_prefeitura_per_capita", "fpm_pct_receita", "impostos_proprios_pct_receita", "cultura_per_capita",
   "agua_rede_censo2022_pct", "esgoto_rede_censo2022_pct", "aps_cobertura_pct", "ideb_ai_municipal", "favela_pct"];
 function distSvg(sorted, v) {
   // Histogram of all municípios (zeros left out when they dominate: the
@@ -572,7 +573,7 @@ async function viewMunicipio(cod) {
     <div class="grid g2" style="margin-top:1rem">
       <div class="card"><h3>Onde fica em relação aos outros municípios</h3>
         <div class="key"><span><span class="sw" style="background:var(--line)"></span>distribuição dos 5.570 municípios</span><span><span class="sw" style="background:var(--accent)"></span>${esc(m.nome)}</span></div>
-        <div class="dist">${DIST_KEYS.map(k => {
+        <div class="dist">${DIST_KEYS.filter(k => PAINEL.metricas[k]).map(k => {
           const meta = PAINEL.metricas[k], sv = sortedValues(k), v = row[k];
           const p = v != null ? Math.round(100 * pctBelow(sv, v)) : null;
           const pu = v != null ? Math.round(100 * pctBelow(sortedValues(k, sameUF), v)) : null;

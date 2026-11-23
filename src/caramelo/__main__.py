@@ -400,6 +400,11 @@ def main(argv: list[str] | None = None) -> None:
             pix.resolve(args.data_dir)
         except Exception as exc:
             print(f"run-all: pix resolution failed: {exc!r}")
+        try:  # emenda money received by each prefeitura (favorecidos)
+            from caramelo.resolution import recebidos
+            recebidos.resolve(args.data_dir)
+        except Exception as exc:
+            print(f"run-all: recebidos resolution failed: {exc!r}")
         from caramelo.enrich import categorias
         # Enrichment is derived data: a failure here must not block publishing
         # the freshly harvested tables (the previous enrichment is carried
