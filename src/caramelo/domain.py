@@ -25,11 +25,28 @@ class Lake:
     def __init__(self, base: str | None = None):
         self.base = (base or DEFAULT_BASE).rstrip("/")
         self.con = duckdb.connect()
+        self._has: dict[str, tuple[float, bool]] = {}
         if self.base.startswith("http"):
             self.con.execute("INSTALL httpfs; LOAD httpfs;")
 
     def table(self, name: str) -> str:
         return f"'{self.base}/{name}.parquet'"
+
+    def has(self, name: str) -> bool:
+        """Is `name` published? Cached for 10 minutes (the lake changes
+        once a day) so a newly published table shows up soon after."""
+        import time
+        hit = self._has.get(name)
+        if hit and time.monotonic() - hit[0] < 600:
+            return hit[1]
+        try:
+            self.con.cursor().execute(
+                f"SELECT 1 FROM {self.table(name)} LIMIT 0")
+            ok = True
+        except duckdb.Error:
+            ok = False
+        self._has[name] = (time.monotonic(), ok)
+        return ok
 
     def q(self, sql: str, params: list | None = None) -> list[dict]:
         # One cursor per query: the API serves requests from a thread pool
@@ -479,7 +496,7 @@ def simular(lake: Lake, proposta_id: str, *,
     status = [f"\"s_{c['id']}\"" for c in criterios]
     where = "WHERE uf = ?" if uf else ""
     rows = lake.q(f"""
-        WITH painel AS ({simulador.painel_sql(lake.table)}),
+        WITH painel AS ({simulador.painel_sql(lake.table, lake.has)}),
         av AS (SELECT cod_ibge, nome, uf, populacao_censo2022 AS populacao,
                       {cols} FROM painel {where})
         SELECT *,
@@ -556,24 +573,26 @@ def painel(lake: Lake) -> dict:
     if hit and time.monotonic() - hit[0] < PAINEL_TTL:
         return hit[1]
     out = _painel(lake)
-    _PAINEL_CACHE[lake.base] = (time.monotonic(), out)
+    # A degraded panel (tables not published yet) is cached for 10 minutes
+    # only, so the full one appears soon after the next publish.
+    ttl_start = time.monotonic() - (PAINEL_TTL - 600 if out["faltando"] else 0)
+    _PAINEL_CACHE[lake.base] = (ttl_start, out)
     return out
 
 
 def _painel(lake: Lake) -> dict:
     from caramelo import simulador
-    try:
-        lake.q(f"SELECT 1 FROM {lake.table('gazetas')} LIMIT 1")
+    if lake.has("gazetas"):
         shows = f"""(SELECT codigo_ibge AS cod_ibge, count(*) AS n
                      FROM {lake.table('gazetas')}
                      WHERE term LIKE '%show%' OR term LIKE '%art%'
                      GROUP BY 1)"""
-    except Exception:  # gazetas not published yet
+    else:  # gazetas not published yet
         shows = "(SELECT NULL::VARCHAR AS cod_ibge, NULL::BIGINT AS n WHERE false)"
     fpm = simulador.METRICAS["fpm_pct_receita"][0]
     imp = simulador.METRICAS["impostos_proprios_pct_receita"][0]
     rows = lake.con.cursor().execute(f"""
-        WITH p AS ({simulador.painel_sql(lake.table)}),
+        WITH p AS ({simulador.painel_sql(lake.table, lake.has)}),
         em AS (
             SELECT codigo_ibge_municipio AS cod_ibge,
                    sum(valor_empenhado) AS emendas,
@@ -584,20 +603,25 @@ def _painel(lake: Lake) -> dict:
             GROUP BY 1),
         sh AS {shows}
         SELECT p.cod_ibge, p.nome, p.uf,
-               p.populacao_censo2022::BIGINT AS populacao,
-               round(coalesce(em.pix, 0) / nullif(p.populacao_censo2022, 0), 2),
-               round(coalesce(em.emendas, 0) / nullif(p.populacao_censo2022, 0), 2),
+               pop::BIGINT AS populacao,
+               round(coalesce(em.pix, 0) / nullif(pop, 0), 2),
+               round(coalesce(em.emendas, 0) / nullif(pop, 0), 2),
                round(({fpm})::DOUBLE, 1), round(({imp})::DOUBLE, 1),
-               round(p.despesa_cultura / nullif(p.populacao_censo2022, 0), 2),
+               round(p.despesa_cultura / nullif(pop, 0), 2),
                round(p.agua_rede_censo2022_pct, 1),
                round(p.esgoto_rede_censo2022_pct, 1),
                round(p.aps_cobertura_pct, 1), p.ideb_ai_municipal,
                round(p.favela_pct, 2), coalesce(sh.n, 0)::BIGINT,
                p.dca_exercicio
-        FROM p LEFT JOIN em USING (cod_ibge) LEFT JOIN sh USING (cod_ibge)
+        FROM (SELECT *, coalesce(populacao_censo2022, populacao_estimada) AS pop
+              FROM p) p
+        LEFT JOIN em USING (cod_ibge) LEFT JOIN sh USING (cod_ibge)
         ORDER BY p.cod_ibge""").fetchall()
     cols = ["cod_ibge", "nome", "uf", *PAINEL_METRICAS, "dca_exercicio"]
+    faltando = [t for t in ("indicadores_municipio", "financas_municipio",
+                            "gazetas") if not lake.has(t)]
     return {
+        "faltando": faltando,
         "colunas": cols,
         "linhas": [list(r) for r in rows],
         "metricas": {k: {"label": lbl, "unidade": u}
@@ -635,6 +659,8 @@ def proposicoes(lake: Lake, *, deputado_id: int | None = None,
                 tema: str | None = None, q: str | None = None,
                 sigla_tipo: str | None = None, limit: int = 50) -> list[dict]:
     """Câmara bills, filterable by author, theme, type or ementa text."""
+    if not lake.has("proposicoes"):
+        return []
     where, params = ["true"], []
     if deputado_id is not None:
         where.append(f"""p.id IN (SELECT id_proposicao FROM
@@ -669,6 +695,8 @@ def proposicoes(lake: Lake, *, deputado_id: int | None = None,
 
 def proposicao(lake: Lake, proposicao_id: int) -> dict:
     """One Câmara bill: text, authors, themes, attached bills, roll calls."""
+    if not lake.has("proposicoes"):
+        return {}
     base = lake.q(f"SELECT * FROM {lake.table('proposicoes')} WHERE id = ?",
                   [proposicao_id])
     if not base:

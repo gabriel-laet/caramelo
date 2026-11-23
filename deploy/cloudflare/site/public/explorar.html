@@ -277,7 +277,7 @@ async function painel() {
   const d = await get("/painel");
   const idx = Object.fromEntries(d.colunas.map((c, i) => [c, i]));
   const rows = d.linhas.map(l => Object.fromEntries(d.colunas.map(c => [c, l[idx[c]]])));
-  PAINEL = {rows, byCod: Object.fromEntries(rows.map(r => [r.cod_ibge, r])), metricas: d.metricas, notas: d.notas};
+  PAINEL = {rows, byCod: Object.fromEntries(rows.map(r => [r.cod_ibge, r])), metricas: d.metricas, notas: d.notas, faltando: d.faltando || []};
   return PAINEL;
 }
 async function geo() {
@@ -438,6 +438,12 @@ async function viewHome() {
     }
     const m = PAINEL.metricas[home.layer];
     const vals = sortedValues(home.layer);
+    if (!vals.length) { // source table not published yet
+      map.color(() => null);
+      legend.innerHTML = `<span>${esc(m.label)}</span><span><i class="sw nd"></i>sem dado</span>`;
+      info.innerHTML = `<h3>${esc(m.label)}</h3><p class="note">Esta camada ainda não tem dados publicados${PAINEL.faltando.length ? ` (aguardando: ${esc(PAINEL.faltando.join(", "))})` : ""}. Ela aparece depois da próxima coleta diária.</p>`;
+      return;
+    }
     // Skewed layers (most municípios at exactly 0): zero is its own bin and
     // the quantiles split only the positive values.
     const zeroHeavy = vals.length && vals[0] === 0 && vals.filter(v => v === 0).length > vals.length / 7;
@@ -481,8 +487,9 @@ async function homeCards() {
   try {
     const [p, s] = await Promise.all([get("/propostas"), get("/simulador/pl-5870-2026?municipios=false")]);
     const a = s.resumo.atende || {municipios: 0, populacao: 0};
+    const semDados = !s.resumo.atende && !s.resumo.nao_atende; // indicators not published yet
     cards.push(`<div class="card"><h3>Simulador de propostas</h3>
-      <p><b class="num" style="font-size:1.6rem">${nf(a.municipios)}</b> municípios (${compact(a.populacao)} de pessoas) atenderiam aos requisitos sociais do <b>PL 5.870/2026</b> para contratar shows com dinheiro público.</p>
+      ${semDados ? `<p>Os indicadores municipais usados pelos critérios do <b>PL 5.870/2026</b> ainda não foram publicados; a simulação aparece depois da próxima coleta diária.</p>` : `<p><b class="num" style="font-size:1.6rem">${nf(a.municipios)}</b> municípios (${compact(a.populacao)} de pessoas) atenderiam aos requisitos sociais do <b>PL 5.870/2026</b> para contratar shows com dinheiro público.</p>`}
       <p class="note" style="margin-top:.4rem">${p.length} propostas simuláveis · critérios do próprio texto, limites ajustáveis.</p>
       <p style="margin-top:.5rem"><a href="#/simulador">Explorar o simulador →</a></p></div>`);
   } catch {}
@@ -765,6 +772,7 @@ async function viewSimulador(pid) {
   const state = {variante: {}, limiar: {}, uf: ""};
   view.innerHTML = `
     <div class="crumb"><a href="#/simulador">Simulador</a></div>
+    ${PAINEL.faltando.some(t => t !== "gazetas") ? `<p class="err">Dados ainda não publicados: ${esc(PAINEL.faltando.filter(t => t !== "gazetas").join(", "))}. Enquanto isso, os municípios aparecem como “sem dado suficiente”.</p>` : ""}
     <div class="tabs2">${props.map(p => `<a class="chip" style="${p.id === pid ? "background:var(--accent-soft);color:var(--accent);font-weight:600" : ""}" href="#/simulador/${p.id}">${esc(p.titulo)}</a>`).join("")}</div>
     <h1>${esc(prop.titulo)}</h1>
     <p class="lede">${esc(prop.ementa)}</p>

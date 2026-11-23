@@ -158,20 +158,39 @@ def resolve(proposta: dict, variantes: dict[str, str] | None = None,
     return out
 
 
-def painel_sql(table) -> str:
-    """One row per município: identity, every indicator, latest DCA year."""
+# Stand-ins when a table is not published yet: same columns, zero rows, so
+# the panel and the simulator degrade to "sem dado" instead of erroring.
+EMPTY = {
+    "indicadores_municipio": "(SELECT NULL::VARCHAR AS cod_ibge, "
+        "NULL::VARCHAR AS indicador, NULL::DOUBLE AS valor WHERE false)",
+    "financas_municipio": "(SELECT NULL::VARCHAR AS cod_ibge, "
+        "NULL::SMALLINT AS exercicio, " + ", ".join(
+            f"NULL::DOUBLE AS {c}" for c in (
+                "receita_corrente", "receita_capital", "iptu", "iss", "itbi",
+                "fpm", "despesa_cultura", "despesa_difusao_cultural"))
+        + " WHERE false)",
+}
+
+
+def painel_sql(table, has=lambda name: True) -> str:
+    """One row per município: identity, every indicator, latest DCA year.
+    `has(name)` says whether a table is published; missing optional tables
+    are swapped for the empty stand-ins above."""
+    def src(name: str) -> str:
+        return table(name) if name not in EMPTY or has(name) else EMPTY[name]
     pivot_cols = ", ".join(
         f"max(valor) FILTER (WHERE indicador = '{m}') AS {m}"
         for m in METRICAS if not m.endswith("_receita"))
     return f"""
         WITH ind AS (
             SELECT cod_ibge, {pivot_cols}
-            FROM {table('indicadores_municipio')} GROUP BY cod_ibge),
+            FROM {src('indicadores_municipio')} GROUP BY cod_ibge),
         fin AS (
-            SELECT * FROM {table('financas_municipio')}
+            SELECT * FROM {src('financas_municipio')}
             QUALIFY row_number() OVER (PARTITION BY cod_ibge
                                        ORDER BY exercicio DESC) = 1)
         SELECT m.codigo_ibge AS cod_ibge, m.nome, m.uf,
+               m.populacao AS populacao_estimada,
                ind.* EXCLUDE (cod_ibge),
                fin.exercicio AS dca_exercicio, fin.receita_corrente,
                fin.receita_capital, fin.iptu, fin.iss, fin.itbi, fin.fpm,
