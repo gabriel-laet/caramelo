@@ -90,6 +90,17 @@ def publish(data_dir: Path, target_spec: str) -> None:
     prev = json.loads(prev_raw) if prev_raw else None
     prev_tables = (prev or {}).get("tables", {})
 
+    # A table this run did not produce (its source failed or was skipped)
+    # still sits untouched under latest/; keep listing it instead of
+    # silently dropping it from the lake.
+    carried = sorted(set(prev_tables) - set(manifest["tables"]))
+    for name in carried:
+        manifest["tables"][name] = prev_tables[name]
+    if carried:
+        manifest["tables"] = dict(sorted(manifest["tables"].items()))
+        print(f"publish: carried forward from previous manifest: "
+              f"{', '.join(carried)}")
+
     changed = [name for name, meta in manifest["tables"].items()
                if prev_tables.get(name, {}).get("sha256") != meta["sha256"]]
     if not changed:

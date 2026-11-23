@@ -190,31 +190,46 @@ def main(argv: list[str] | None = None) -> None:
             siconfi.harvest(args.data_dir, exercicio, periodo,
                             siconfi.rotating_municipal_entes(
                                 args.data_dir, ufs_per_run))
-        from caramelo.harvesters import redes
-        redes.harvest(args.data_dir)
-        if os.environ.get("CARAMELO_SEARCHAPI_KEY"):
-            from caramelo import media
+        # Everything above is core (a failure there aborts the run rather
+        # than publishing a manifest without it). Everything below is a
+        # secondary source: its previous table was seeded from the lake, so
+        # if the upstream is down (e.g. Querido Diário TLS outage, Nov 2026)
+        # we log, keep yesterday's rows and still publish.
+        from caramelo import media
+        from caramelo.harvesters import (ceaps, cnpj, dca, favorecidos,
+                                         gazetas, indicadores, proposicoes,
+                                         redes, senado_proposicoes,
+                                         senado_votos, transferegov)
+
+        def _media() -> None:
+            if not os.environ.get("CARAMELO_SEARCHAPI_KEY"):
+                return
             media.harvest(args.data_dir,
                           int(os.environ.get("CARAMELO_MEDIA_BUDGET", "25")))
             media.harvest_trends(args.data_dir,
                                  int(os.environ.get("CARAMELO_TRENDS_BUDGET",
                                                     "10")))
-        if os.environ.get("CARAMELO_X_BEARER"):
+
+        def _x() -> None:
+            if not os.environ.get("CARAMELO_X_BEARER"):
+                return
             from caramelo.harvesters import x
             x.harvest(args.data_dir,
                       int(os.environ.get("CARAMELO_X_READS", "350")))
-        from caramelo.harvesters import gazetas
-        gazetas.harvest(args.data_dir)
-        from caramelo.harvesters import ceaps, cnpj, favorecidos, senado_votos, transferegov
-        favorecidos.harvest(args.data_dir)
-        transferegov.harvest(args.data_dir)
-        ceaps.harvest(args.data_dir)
-        senado_votos.harvest(args.data_dir)
-        cnpj.harvest(args.data_dir,
-                     int(os.environ.get("CARAMELO_CNPJ_LOOKUPS", "300")))
-        from caramelo.harvesters import (dca, indicadores, proposicoes,
-                                         senado_proposicoes)
+
+        failed: list[str] = []
         for name, step in (
+                ("redes", lambda: redes.harvest(args.data_dir)),
+                ("media", _media),
+                ("x", _x),
+                ("gazetas", lambda: gazetas.harvest(args.data_dir)),
+                ("favorecidos", lambda: favorecidos.harvest(args.data_dir)),
+                ("transferegov", lambda: transferegov.harvest(args.data_dir)),
+                ("ceaps", lambda: ceaps.harvest(args.data_dir)),
+                ("senado-votos", lambda: senado_votos.harvest(args.data_dir)),
+                ("cnpj", lambda: cnpj.harvest(
+                    args.data_dir,
+                    int(os.environ.get("CARAMELO_CNPJ_LOOKUPS", "300")))),
                 ("indicadores", lambda: indicadores.harvest(args.data_dir)),
                 ("financas", lambda: dca.harvest(
                     args.data_dir, None,
@@ -224,8 +239,12 @@ def main(argv: list[str] | None = None) -> None:
                  lambda: senado_proposicoes.harvest(args.data_dir))):
             try:
                 step()
-            except Exception as exc:  # a new source must not sink run-all
+            except Exception as exc:  # one source must not sink run-all
+                failed.append(name)
                 print(f"run-all: {name} failed: {exc!r}")
+        if failed:
+            print(f"run-all: secondary sources failed (kept previous rows): "
+                  f"{', '.join(failed)}")
         authors.resolve(args.data_dir)
         from caramelo.enrich import categorias
         if os.environ.get("CARAMELO_AI_TOKEN"):
