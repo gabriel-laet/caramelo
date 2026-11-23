@@ -32,14 +32,44 @@ interface Env {
   AI_TOKEN: string;
 }
 
-async function startHarvest(env: Env): Promise<void> {
+type StartResult = { ok: boolean; message: string };
+
+const RUNNING = new Set(["running", "healthy"]);
+
+// start() only means "the start command was issued" — during an image
+// rollout it can resolve without a container ever running (Nov 2026). So
+// poll the Durable Object's state until the container is really up.
+async function startHarvest(env: Env): Promise<StartResult> {
   const stub = env.HARVESTER.getByName("daily-harvest");
+  const before = await stub.getState();
+  if (RUNNING.has(before.status)) {
+    return { ok: true, message: "harvest already running" };
+  }
+  const t0 = Date.now();
   await stub.start();
+  for (let i = 0; i < 30; i++) {
+    const s = await stub.getState();
+    if (s.lastChange >= t0) {
+      if (RUNNING.has(s.status)) {
+        return { ok: true, message: "harvest started" };
+      }
+      if (s.status === "stopped_with_code") {
+        return { ok: false,
+                 message: `harvest exited right away (code ${s.exitCode ?? "?"})` };
+      }
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  const s = await stub.getState();
+  return { ok: false,
+           message: `container not running after 60s (status: ${s.status})` };
 }
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env) {
-    await startHarvest(env);
+    const r = await startHarvest(env);
+    console.log(`cron: ${r.message}`);
+    if (!r.ok) throw new Error(r.message); // marks the cron run as failed
   },
 
   // Manual trigger for testing/ops: POST /trigger with Bearer TRIGGER_TOKEN.
@@ -50,8 +80,8 @@ export default {
       if (auth !== `Bearer ${env.TRIGGER_TOKEN}`) {
         return new Response("unauthorized", { status: 401 });
       }
-      await startHarvest(env);
-      return new Response("harvest started\n");
+      const r = await startHarvest(env);
+      return new Response(`${r.message}\n`, { status: r.ok ? 202 : 503 });
     }
     return new Response("caramelo-scheduler\n");
   },
