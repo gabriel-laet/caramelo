@@ -93,7 +93,7 @@ was probed live before inclusion).
 
 | Surface | URL |
 |---------|-----|
-| Landing + explorer + docs | [caramelo.dev.br](https://caramelo.dev.br) · [/explorar](https://caramelo.dev.br/explorar.html) |
+| Explorer + developer page + docs | [caramelo.dev.br](https://caramelo.dev.br) · [/desenvolvedores](https://caramelo.dev.br/desenvolvedores) |
 | Data lake (Parquet, free egress) | [data.caramelo.dev.br](https://data.caramelo.dev.br/latest/manifest.json) |
 | REST API | [api.caramelo.dev.br/docs](https://api.caramelo.dev.br/docs) |
 | MCP server | `https://mcp.caramelo.dev.br/` |

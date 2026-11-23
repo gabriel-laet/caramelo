@@ -228,6 +228,15 @@ def proposicoes(deputado_id: int | None = None, tema: str | None = None,
                               q=q, sigla_tipo=sigla_tipo, limit=limit)
 
 
+@app.get("/senado/proposicoes", operation_id="senado_proposicoes",
+         summary="Senate bills by senator, type or text")
+def senado_proposicoes(senador_id: int | None = None, q: str | None = None,
+                       sigla_tipo: str | None = None,
+                       limit: int = Query(50, le=200)) -> list[dict]:
+    return domain.senado_proposicoes(lake(), senador_id=senador_id, q=q,
+                                     sigla_tipo=sigla_tipo, limit=limit)
+
+
 @app.get("/proposicoes/{proposicao_id}", operation_id="proposicao",
          summary="One Câmara bill: authors, themes, attached bills, votes")
 def proposicao(proposicao_id: int) -> dict:

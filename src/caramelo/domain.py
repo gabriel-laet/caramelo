@@ -986,6 +986,40 @@ def proposicoes(lake: Lake, *, deputado_id: int | None = None,
         ORDER BY p.data_apresentacao DESC NULLS LAST LIMIT ?""", params)
 
 
+def senado_proposicoes(lake: Lake, *, senador_id: int | None = None,
+                       q: str | None = None, sigla_tipo: str | None = None,
+                       limit: int = 50) -> list[dict]:
+    """Senate bills by senators of the current legislature, filterable by
+    author, type or ementa text (same shape as `proposicoes` where it can
+    be: `sigla`, `ementa`, `autores`, `url`)."""
+    if not lake.has("senado_proposicoes"):
+        return []
+    a = lake.table("senado_proposicoes_autores")
+    where, params = ["true"], []
+    if senador_id is not None:
+        where.append(f"p.id IN (SELECT id_processo FROM {a} WHERE codigo_senador = ?)")
+        params.append(senador_id)
+    if q:
+        where.append("strip_accents(lower(coalesce(p.ementa, ''))) "
+                     "LIKE strip_accents(lower(?))")
+        params.append(f"%{q}%")
+    if sigla_tipo:
+        where.append("p.sigla_tipo = ?")
+        params.append(sigla_tipo.upper())
+    params.append(limit)
+    return lake.q(f"""
+        SELECT p.id, p.identificacao AS sigla, p.sigla_tipo, p.ementa,
+               p.data_apresentacao, p.situacao_atual AS status_situacao,
+               p.tramitando, p.url,
+               (SELECT list(DISTINCT x.nome_senador) FROM {a} x
+                WHERE x.id_processo = p.id) AS autores,
+               (SELECT list(DISTINCT x.codigo_senador) FROM {a} x
+                WHERE x.id_processo = p.id) AS autores_ids
+        FROM {lake.table('senado_proposicoes')} p
+        WHERE {' AND '.join(where)}
+        ORDER BY p.data_apresentacao DESC NULLS LAST LIMIT ?""", params)
+
+
 def proposicao(lake: Lake, proposicao_id: int) -> dict:
     """One Câmara bill: text, authors, themes, attached bills, roll calls."""
     if not lake.has("proposicoes"):
