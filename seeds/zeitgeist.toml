@@ -1,0 +1,46 @@
+# "Spirit of the time" sources for `caramelo harvest manchetes` / `gdelt`.
+
+# Front pages sampled from the Wayback Machine. `desde` is the first year
+# to sample; captures are sparse before ~2000 for most outlets.
+[[veiculo]]
+slug = "folha"
+url = "folha.uol.com.br"
+desde = 1998
+
+[[veiculo]]
+slug = "estadao"
+url = "estadao.com.br"
+desde = 2000
+
+[[veiculo]]
+slug = "oglobo"
+url = "oglobo.globo.com"
+desde = 2000
+
+[[veiculo]]
+slug = "g1"
+url = "g1.globo.com"
+desde = 2006
+
+[[veiculo]]
+slug = "uol"
+url = "uol.com.br"
+desde = 1998
+
+# GDELT DOC 2.0 timelines (coverage from 2017). Each query is wrapped with
+# sourcecountry:BR; volume = share of monitored coverage, tone = avg tone.
+[gdelt]
+consultas = [
+  "inflação",
+  "desemprego",
+  "corrupção",
+  "impeachment",
+  "reforma da previdência",
+  "reforma tributária",
+  "eleições",
+  "fake news",
+  "vacina",
+  "desmatamento",
+  "violência",
+  "STF",
+]

@@ -1,0 +1,340 @@
+# Election debates — hand-curated seed for `caramelo harvest debates`.
+#
+# Every entry is a debate *event*; `fontes` lists recordings of it (YouTube
+# or any URL yt-dlp understands). Several mirrors are welcome: old uploads
+# disappear, and `archive debates` tries them in order.
+#
+# status: "verificar" until date/broadcaster/participants are checked
+# against a primary source (TSE, broadcaster archive, press of the day);
+# then "ok". Participants are names as the candidates ran (nome de urna);
+# they are resolved to TSE sq_candidato later.
+#
+# id convention: <ano>-<cargo>-<uf>-t<turno>-<emissora-slug>[-n]
+
+[[debate]]
+id = "1989-presidente-br-t2-pool-2"
+ano = 1989
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "pool (Globo, Bandeirantes, Manchete, SBT)"
+data = "1989-12-14"
+participantes = ["Fernando Collor", "Lula"]
+fontes = ["https://www.youtube.com/watch?v=p3G0bKrnu7Q"]
+status = "verificar"
+
+[[debate]]
+id = "1989-presidente-br-t1-band"
+ano = 1989
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "1989-07-17"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=MDiGbBDpQhg"]
+status = "verificar"
+
+[[debate]]
+id = "2018-presidente-br-t1-band"
+ano = 2018
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2018-08-09"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=Vq-9DEZ3cTA", "https://www.youtube.com/watch?v=9EnJeUKwX_c"]
+status = "verificar"
+
+[[debate]]
+id = "2018-presidente-br-t1-globo"
+ano = 2018
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2018-10-04"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=epDDSEVnLmI"]
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t1-band"
+ano = 2022
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band (pool com TV Cultura, Folha, UOL)"
+data = "2022-08-28"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=WwdgWl_nmKI"]
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t1-globo"
+ano = 2022
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2022-09-29"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t2-band"
+ano = 2022
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band (pool)"
+data = "2022-10-16"
+participantes = ["Lula", "Jair Bolsonaro"]
+fontes = ["https://www.youtube.com/watch?v=iYVk1CeIs60"]
+status = "verificar"
+
+[[debate]]
+id = "2022-presidente-br-t2-globo"
+ano = 2022
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2022-10-28"
+participantes = ["Lula", "Jair Bolsonaro"]
+fontes = []
+status = "verificar"
+
+# 1994 and 1998: Fernando Henrique Cardoso declined TV debates both
+# times, so no debate with the front-runners exists (to confirm).
+# Dates below are from memory -> status "verificar".
+
+[[debate]]
+id = "2002-presidente-br-t1-band"
+ano = 2002
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2002-08-04"
+participantes = ["Lula", "José Serra", "Ciro Gomes", "Anthony Garotinho"]
+fontes = ["https://www.youtube.com/watch?v=Dn0vbGXPWuU"]
+status = "verificar"
+
+[[debate]]
+id = "2002-presidente-br-t1-globo"
+ano = 2002
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2002-10-03"
+participantes = ["Lula", "José Serra", "Ciro Gomes", "Anthony Garotinho"]
+fontes = ["https://www.youtube.com/watch?v=r4ccG1vGxXk"]
+status = "verificar"
+
+[[debate]]
+id = "2002-presidente-br-t2-globo"
+ano = 2002
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2002-10-25"
+participantes = ["Lula", "José Serra"]
+fontes = ["https://www.youtube.com/watch?v=D4ZKAawIPgQ"]
+status = "verificar"
+
+[[debate]]
+id = "2006-presidente-br-t1-band"
+ano = 2006
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2006-08-14"
+participantes = ["Geraldo Alckmin", "Heloísa Helena", "Cristovam Buarque"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2006-presidente-br-t1-globo"
+ano = 2006
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2006-09-28"
+participantes = ["Geraldo Alckmin", "Heloísa Helena", "Cristovam Buarque"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2006-presidente-br-t2-band"
+ano = 2006
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2006-10-08"
+participantes = ["Lula", "Geraldo Alckmin"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2006-presidente-br-t2-globo"
+ano = 2006
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2006-10-27"
+participantes = ["Lula", "Geraldo Alckmin"]
+fontes = ["https://www.youtube.com/watch?v=1DgOoCXedo4"]
+status = "verificar"
+
+[[debate]]
+id = "2010-presidente-br-t1-band"
+ano = 2010
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2010-08-05"
+participantes = ["Dilma", "José Serra", "Marina Silva", "Plínio"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2010-presidente-br-t1-globo"
+ano = 2010
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2010-09-30"
+participantes = ["Dilma", "José Serra", "Marina Silva", "Plínio"]
+fontes = ["https://www.youtube.com/watch?v=mvBdg6k-S94"]
+status = "verificar"
+
+[[debate]]
+id = "2010-presidente-br-t2-band"
+ano = 2010
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2010-10-10"
+participantes = ["Dilma", "José Serra"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2010-presidente-br-t2-globo"
+ano = 2010
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2010-10-29"
+participantes = ["Dilma", "José Serra"]
+fontes = ["https://www.youtube.com/watch?v=NBqakRpbnrw"]
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t1-band"
+ano = 2014
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2014-08-26"
+participantes = []
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t1-globo"
+ano = 2014
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2014-10-02"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=MpIiALqQg8A"]
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t2-band"
+ano = 2014
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2014-10-14"
+participantes = ["Dilma", "Aécio Neves"]
+fontes = ["https://www.youtube.com/watch?v=dvKpQLqP5-0", "https://www.youtube.com/watch?v=ZNQ1a6VUE6s"]
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t2-globo"
+ano = 2014
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2014-10-24"
+participantes = ["Dilma", "Aécio Neves"]
+fontes = []
+status = "verificar"
+
+[[debate]]
+id = "2002-presidente-br-t1-record"
+ano = 2002
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Record"
+# data: verificar
+participantes = ["Lula", "José Serra", "Ciro Gomes", "Anthony Garotinho"]
+fontes = ["https://www.youtube.com/watch?v=ClLcptTq7zU"]
+status = "verificar"
+
+[[debate]]
+id = "2006-presidente-br-t2-sbt"
+ano = 2006
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "SBT"
+data = "2006-10-19"
+participantes = ["Lula", "Geraldo Alckmin"]
+fontes = ["https://www.youtube.com/watch?v=HkP1x7OT36k"]
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t2-sbt"
+ano = 2014
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "SBT"
+data = "2014-10-16"
+participantes = ["Dilma", "Aécio Neves"]
+fontes = ["https://www.youtube.com/watch?v=769Z-Xs3sc0"]
+status = "verificar"
+
+[[debate]]
+id = "2026-presidente-br-t2-band"
+ano = 2026
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+# data: verificar
+participantes = ["Lula", "Flávio Bolsonaro"]
+fontes = ["https://www.youtube.com/watch?v=X1fp4JzouvA"]
+status = "verificar"

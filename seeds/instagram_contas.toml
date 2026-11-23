@@ -1,0 +1,10 @@
+# Instagram account overrides for `caramelo harvest instagram`.
+# Deputies come from redes_sociais.parquet (declared); senators and fixes
+# go here. Only professional (business/creator) accounts are visible to
+# the Business Discovery API.
+#
+# [[conta]]
+# casa = "senado"
+# parlamentar_id = 0
+# nome = "..."
+# username = "handle"

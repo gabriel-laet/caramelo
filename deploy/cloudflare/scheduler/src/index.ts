@@ -18,6 +18,10 @@ export class HarvestContainer extends Container<Env> {
     CARAMELO_SEARCHAPI_KEY: this.env.SEARCHAPI_KEY,
     CARAMELO_MEDIA_BUDGET: "25",
     CARAMELO_AI_TOKEN: this.env.AI_TOKEN,
+    // YouTube Data API: channel/video metadata + stats only (media and
+    // transcripts are pulled on the local network, never in this container)
+    CARAMELO_YOUTUBE_KEY: this.env.YOUTUBE_KEY,
+    CARAMELO_YOUTUBE_UNITS: "8000",
   };
 }
 
@@ -30,6 +34,7 @@ interface Env {
   TRIGGER_TOKEN: string;
   SEARCHAPI_KEY: string;
   AI_TOKEN: string;
+  YOUTUBE_KEY?: string;
 }
 
 type StartResult = { ok: boolean; message: string };

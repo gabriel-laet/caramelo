@@ -3,6 +3,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
+COPY seeds ./seeds
 RUN pip install --no-cache-dir .[publish]
 
 # Harvest state (siconfi shards, bulk downloads) is ephemeral in the
