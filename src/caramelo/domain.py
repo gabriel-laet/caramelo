@@ -1020,6 +1020,158 @@ def senado_proposicoes(lake: Lake, *, senador_id: int | None = None,
         ORDER BY p.data_apresentacao DESC NULLS LAST LIMIT ?""", params)
 
 
+# ---------------------------------------------------------------- falas
+# Transcripts (`transcricoes`): debate recordings are keyed
+# "<debate_id>/<n>" (n = index into debates.fontes), YouTube videos by
+# video id. Text only; machine transcription (Whisper / YouTube captions),
+# no speaker attribution yet.
+
+def _debate_meta(lake: Lake) -> dict[str, dict]:
+    if not lake.has("debates"):
+        return {}
+    return {r["debate_id"]: r for r in lake.q(f"""
+        SELECT debate_id, ano, turno, cargo, uf, emissora, data,
+               participantes, fontes, status FROM {lake.table('debates')}""")}
+
+
+def debates(lake: Lake) -> list[dict]:
+    """Every debate we know of, with how much of it is transcribed."""
+    meta = _debate_meta(lake)
+    stats = {}
+    if lake.has("transcricoes"):
+        for r in lake.q(f"""
+            SELECT split_part(source_id, '/', 1) AS debate_id,
+                   count(DISTINCT source_id) AS gravacoes,
+                   count(*) AS segmentos,
+                   round(sum(end_s - start_s) / 60) AS minutos
+            FROM {lake.table('transcricoes')} WHERE source_kind = 'debate'
+            GROUP BY 1"""):
+            stats[r["debate_id"]] = r
+    out = []
+    for did in sorted(set(meta) | set(stats), reverse=True):
+        m = meta.get(did) or {"debate_id": did, "ano": int(did[:4]),
+                              "turno": None, "cargo": did.split("-")[1],
+                              "uf": None, "emissora": None, "data": None,
+                              "participantes": [], "fontes": [],
+                              "status": None}
+        st = stats.get(did, {})
+        out.append({**m, "transcrito": bool(st),
+                    "segmentos": st.get("segmentos", 0),
+                    "minutos": st.get("minutos", 0)})
+    out.sort(key=lambda r: (r["data"] or str(r["ano"]), r["debate_id"]),
+             reverse=True)
+    return out
+
+
+def debate(lake: Lake, debate_id: str) -> dict:
+    """One debate: metadata and the transcript of each recording."""
+    meta = _debate_meta(lake).get(debate_id)
+    segs = lake.q(f"""
+        SELECT split_part(source_id, '/', 2)::INT AS gravacao, seg_idx AS i,
+               round(start_s, 1) AS ini, round(end_s, 1) AS fim, text,
+               speaker, method
+        FROM {lake.table('transcricoes')}
+        WHERE source_kind = 'debate' AND split_part(source_id, '/', 1) = ?
+        ORDER BY gravacao, seg_idx""", [debate_id]) if lake.has("transcricoes") else []
+    if not meta and not segs:
+        return {}
+    meta = meta or {"debate_id": debate_id, "ano": int(debate_id[:4]),
+                    "fontes": [], "participantes": []}
+    grav: dict[int, list] = {}
+    for s in segs:
+        grav.setdefault(s["gravacao"], []).append(
+            {k: s[k] for k in ("i", "ini", "fim", "text", "speaker")})
+    fontes = meta.get("fontes") or []
+    return {**meta, "metodo": segs[0]["method"] if segs else None,
+            "gravacoes": [{"n": n, "url": fontes[n] if n < len(fontes) else None,
+                           "segmentos": v} for n, v in sorted(grav.items())]}
+
+
+def entrevistas(lake: Lake, *, q: str | None = None,
+                limit: int = 200) -> list[dict]:
+    """Long-form interviews (e.g. Roda Viva), newest first."""
+    if not lake.has("entrevistas"):
+        return []
+    where, params = "true", []
+    if q:
+        where = ("strip_accents(lower(coalesce(convidado, '') || ' ' || "
+                 "coalesce(titulo, ''))) LIKE strip_accents(lower(?))")
+        params.append(f"%{q}%")
+    tr = (f"video_id IN (SELECT source_id FROM {lake.table('transcricoes')} "
+          "WHERE source_kind = 'youtube')") if lake.has("transcricoes") else "false"
+    return lake.q(f"""
+        SELECT programa, video_id, convidado, titulo,
+               coalesce(data, substr(published_at, 1, 10)) AS data,
+               round(duration_s / 60) AS minutos, casa, parlamentar_id,
+               {tr} AS transcrito
+        FROM {lake.table('entrevistas')} WHERE {where}
+        ORDER BY data DESC NULLS LAST LIMIT ?""", [*params, limit])
+
+
+def video_fala(lake: Lake, video_id: str) -> dict:
+    """Transcript of one YouTube video (interview or parliamentarian
+    channel), with whatever metadata we hold for it."""
+    if not lake.has("transcricoes"):
+        return {}
+    segs = lake.q(f"""
+        SELECT seg_idx AS i, round(start_s, 1) AS ini, round(end_s, 1) AS fim,
+               text, speaker, method
+        FROM {lake.table('transcricoes')}
+        WHERE source_kind = 'youtube' AND source_id = ? ORDER BY seg_idx""",
+        [video_id])
+    if not segs:
+        return {}
+    meta: dict = {"video_id": video_id}
+    for t, sql in (("entrevistas", "SELECT titulo, convidado, programa, coalesce(data, substr(published_at, 1, 10)) AS data, casa, parlamentar_id FROM {} WHERE video_id = ?"),
+                   ("youtube_videos", "SELECT title AS titulo, substr(published_at, 1, 10) AS data, casa, parlamentar_id FROM {} WHERE video_id = ?")):
+        if lake.has(t):
+            hit = lake.q(sql.format(lake.table(t)), [video_id])
+            if hit:
+                meta.update({k: v for k, v in hit[0].items() if v is not None})
+                break
+    return {**meta, "url": f"https://www.youtube.com/watch?v={video_id}",
+            "metodo": segs[0]["method"],
+            "segmentos": [{k: s[k] for k in ("i", "ini", "fim", "text", "speaker")} for s in segs]}
+
+
+def busca_falas(lake: Lake, q: str, *, tipo: str | None = None,
+                limit: int = 60) -> list[dict]:
+    """Transcript segments containing `q` (accents and case ignored), with
+    where they come from and the second they start."""
+    if not lake.has("transcricoes") or len(q.strip()) < 3:
+        return []
+    where, params = ["strip_accents(lower(text)) LIKE strip_accents(lower(?))"], [f"%{q.strip()}%"]
+    if tipo in ("debate", "youtube"):
+        where.append("source_kind = ?")
+        params.append(tipo)
+    rows = lake.q(f"""
+        SELECT source_kind AS tipo, source_id, seg_idx AS i,
+               round(start_s, 1) AS ini, text
+        FROM {lake.table('transcricoes')} WHERE {' AND '.join(where)}
+        ORDER BY source_kind, source_id DESC, seg_idx LIMIT ?""",
+        [*params, limit])
+    meta = _debate_meta(lake)
+    titles: dict[str, str] = {}
+    vids = [r["source_id"] for r in rows if r["tipo"] == "youtube"]
+    if vids:
+        for t, col in (("entrevistas", "titulo"), ("youtube_videos", "title")):
+            if lake.has(t):
+                for r in lake.q(f"SELECT video_id, {col} AS t FROM {lake.table(t)} "
+                                f"WHERE video_id IN ({','.join('?' * len(vids))})", vids):
+                    titles.setdefault(r["video_id"], r["t"])
+    for r in rows:
+        if r["tipo"] == "debate":
+            did, n = r["source_id"].split("/")
+            m = meta.get(did, {})
+            r["debate_id"], r["gravacao"] = did, int(n)
+            r["titulo"] = (f"Debate {m.get('cargo', 'presidente')} {did[:4]}"
+                           f"{' · ' + str(m['turno']) + 'º turno' if m.get('turno') else ''}"
+                           f"{' · ' + m['emissora'] if m.get('emissora') else ''}")
+        else:
+            r["titulo"] = titles.get(r["source_id"], "Vídeo " + r["source_id"])
+    return rows
+
+
 def proposicao(lake: Lake, proposicao_id: int) -> dict:
     """One Câmara bill: text, authors, themes, attached bills, roll calls."""
     if not lake.has("proposicoes"):

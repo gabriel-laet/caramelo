@@ -219,17 +219,6 @@
   pre.sql { background: var(--surface-2); border-radius: 8px; padding: .7rem .85rem; overflow-x: auto; font-size: .8rem; margin: 0; }
   .tabs2 { display: flex; gap: .3rem; flex-wrap: wrap; margin: 1rem 0; }
   footer { max-width: 82rem; margin: 0 auto; padding: 1.5rem 16px 2.5rem; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); }
-  /* ---------- context line ---------- */
-  .ctx { max-width: 82rem; margin: 0 auto; padding: 0 16px .55rem; display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; font-size: .84rem; color: var(--muted); min-height: 1.6rem; }
-  .ctx:empty { display: none; }
-  .ctx a { color: var(--text-2); }
-  .ctx .sep { color: var(--line); }
-  .ctx .cur { color: var(--text); font-weight: 600; }
-  .ctx select { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: .15rem .5rem; font: inherit; font-size: .82rem; }
-  .ctx .chipx { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--line); border-radius: 999px; padding: .1rem .55rem; background: var(--surface); color: var(--text-2); }
-  .ctx .chipx b { color: var(--text); font-weight: 600; }
-  .ctx .grow { flex: 1; }
-  .ctx .tray { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
   .vsel { position: relative; }
   #viewbtn { display: flex; flex-direction: column; align-items: flex-start; gap: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 12px;
              padding: .28rem 2rem .3rem .75rem; cursor: pointer; position: relative; min-width: 16rem; text-align: left; line-height: 1.15; }
@@ -249,9 +238,33 @@
   #vlist a:hover, #vlist a.sel { background: var(--surface-2); text-decoration: none; }
   #vlist a.on { color: var(--accent); font-weight: 600; }
   #sbox[hidden] { display: none; }
+  .fala-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1rem; align-items: start; margin-top: 1rem; }
+  @media (max-width: 960px) { .fala-grid { grid-template-columns: 1fr; } }
+  .player { position: sticky; top: 7.5rem; }
+  @media (max-width: 960px) { .player { position: static; } }
+  .player .frame { aspect-ratio: 16 / 9; background: #000; border-radius: var(--radius); overflow: hidden; }
+  .player iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .tr { max-height: 75vh; overflow-y: auto; position: relative; }
+  .tr p { display: grid; grid-template-columns: 3.6rem 1fr; gap: .5rem; margin: 0; padding: .3rem .4rem; border-radius: 6px; cursor: pointer; font-size: .9rem; line-height: 1.45; }
+  .tr p:hover { background: var(--surface-2); }
+  .tr p.cur { background: var(--accent-soft); }
+  .tr p[hidden] { display: none; }
+  .tr time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: .78rem; padding-top: .12rem; }
+  .tr mark, .hits mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 .1rem; }
+  .dcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .7rem; }
+  .dcard { display: block; border: 1px solid var(--line); border-radius: 10px; padding: .75rem .9rem; color: var(--text); background: var(--surface); }
+  .dcard:hover { border-color: var(--accent); text-decoration: none; }
+  .dcard b { display: block; } .dcard small { color: var(--muted); }
+  .hits .hit { display: grid; grid-template-columns: 4rem 1fr; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+  .hits h3 { margin-top: 1rem; }
   .gh { color: var(--text-2); display: inline-flex; padding: .3rem; border-radius: 999px; }
   .gh:hover { color: var(--text); background: var(--surface-2); }
-  .ai { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: .12rem .6rem; font-size: .8rem; cursor: pointer; white-space: nowrap; }
+  .pick { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: .3rem .75rem; font: inherit; font-size: .86rem; cursor: pointer; max-width: 100%; }
+  .pick:hover { border-color: var(--accent); }
+  .pagebar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: .7rem 0 .2rem; }
+  #tray:empty { display: none; }
+  #tray .chipx { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .2rem .65rem; font-size: .8rem; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .ai { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: .4rem .8rem; font-size: .84rem; cursor: pointer; white-space: nowrap; }
   .ai:hover { border-color: var(--accent); color: var(--accent); }
   .toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--surface); padding: .6rem 1rem; border-radius: 10px; font-size: .88rem; max-width: min(92vw, 34rem); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   .results .hd { padding: .45rem .85rem .2rem; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); background: var(--surface-2); }
@@ -281,6 +294,7 @@
     .vsel { flex: 1 1 auto; min-width: 0; }
     #viewbtn { width: 100%; min-width: 0; }
     .search { flex-basis: 100%; order: 5; }
+    .ai { font-size: 0; padding: .4rem .6rem; } .ai::after { content: "✦ IA"; font-size: .84rem; }
     .start { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
     .start button { padding: .55rem .6rem; }
     .start b { font-size: .84rem; margin: 0; }
@@ -306,9 +320,11 @@
     <input id="q" type="search" placeholder="Buscar…" autocomplete="off" aria-label="Buscar">
     <div id="results" class="results" hidden></div>
   </div>
+  <span id="tray"></span>
+  <button class="ai" id="aibtn" title="Copia um prompt pronto, com links para os dados e o contexto desta página, para colar no ChatGPT, Claude, Gemini…">✦ Perguntar a uma IA</button>
   <a class="gh" href="https://github.com/gabriel-laet/caramelo" target="_blank" rel="noopener" aria-label="Código no GitHub" title="Código aberto no GitHub"><svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
 </div>
-<div class="ctx" id="ctx"></div></div>
+</div>
 
 <main id="view"><div class="loading">carregando…</div></main>
 
@@ -462,20 +478,21 @@ const LAYERS = [
 const layerLabel = l => l.label || PAINEL?.metricas?.[l.key]?.label || l.nome;
 const norm = s => String(s || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
-// ---------------------------------------------------------------- context line
-// One line under the search bar says where you are; every part is a link,
-// and the map/simulator put their state selector (UF) here, not in the page.
-const ctxEl = document.getElementById("ctx");
+// ---------------------------------------------------------------- page context
+// No breadcrumb bar: the view selector says where you are. Views still call
+// setCtx() to hand over the page's AI-prompt context and, for maps, the UF
+// picker (rendered into #ufslot, in the same style as every other picker).
 let lastCtx = [[], {}];
 function setCtx(crumbs = [], opt = {}) {
   lastCtx = [crumbs, opt];
-  const cs = crumbs.map(([l, h], i) => h && i < crumbs.length - 1 ? `<a href="${h}">${esc(l)}</a>` : `<span class="cur">${esc(l)}</span>`).join('<span class="sep">›</span>');
-  const uf = opt.uf ? `<select id="ctxuf" aria-label="Estado"><option value="">Brasil inteiro</option>${UF_SIGLAS.map(x => `<option ${x === opt.uf.value ? "selected" : ""}>${x}</option>`).join("")}</select>` : "";
-  ctxEl.innerHTML = cs + (uf ? (cs ? '<span class="sep">·</span>' : "") + uf : "") + (opt.chips || "") + '<span class="grow"></span>' + trayHtml()
-    + `<button class="ai" id="aibtn" title="Copia um prompt pronto, com links para os dados, para colar no ChatGPT, Claude, Gemini…">✦ Perguntar a uma IA</button>`;
-  if (opt.uf) document.getElementById("ctxuf").onchange = e => opt.uf.onChange(e.target.value);
-  document.getElementById("aibtn").onclick = () => copyPrompt(opt.ai);
+  const slot = document.getElementById("ufslot");
+  if (opt.uf && slot) {
+    slot.innerHTML = `<select class="pick" id="ctxuf" aria-label="Estado"><option value="">Brasil inteiro</option>${UF_SIGLAS.map(x => `<option ${x === opt.uf.value ? "selected" : ""}>${x}</option>`).join("")}</select>`;
+    document.getElementById("ctxuf").onchange = e => opt.uf.onChange(e.target.value);
+  }
+  document.getElementById("tray").innerHTML = trayHtml();
 }
+document.getElementById("aibtn").onclick = () => copyPrompt(lastCtx[1].ai);
 // ---------------------------------------------------------------- AI prompt
 // A copy-paste prompt that lets any chat assistant query the open lake
 // itself (DuckDB over HTTPS) with the context of the current page.
@@ -520,7 +537,7 @@ function trayHtml() {
   const t = tray(); if (!t.length) return "";
   return `<span class="chipx tray">Comparar: ${t.map(x => `<b>${esc(x.nome)}</b>`).join(" × ")} ${t.length === 2 ? '<a href="#/comparar">ver →</a>' : "<span>· escolha mais um</span>"} <a href="#" data-clr="1" aria-label="Limpar comparação">✕</a></span>`;
 }
-ctxEl.addEventListener("click", e => { if (e.target.dataset.clr) { e.preventDefault(); setTray([]); setCtx(...lastCtx); if (location.hash.startsWith("#/comparar")) route(); } });
+document.getElementById("tray").addEventListener("click", e => { if (e.target.dataset.clr) { e.preventDefault(); setTray([]); setCtx(...lastCtx); if (location.hash.startsWith("#/comparar")) route(); } });
 function cmpButton(t, id, nome) {
   const on = tray().some(x => x.t === t && x.id == id);
   return `<button class="chip" id="cmpbtn" style="font-size:.8rem;vertical-align:.3em" data-t="${t}" data-id="${esc(id)}" data-n="${esc(nome)}">${on ? "✓ na comparação" : "+ Comparar"}</button>`;
@@ -562,6 +579,7 @@ async function viewHome(params = new URLSearchParams()) {
     </div>`}
     <div class="atlas">
       <div class="mapbox">
+        <div class="map-ctl" id="ufslot"></div>
         <div id="map"></div>
         <div class="legend" id="legend"></div>
       </div>
@@ -1016,7 +1034,7 @@ async function viewSimulador(pid) {
       <div class="card" id="ctl"><div class="loading">simulando…</div></div>
       <div>
         <div class="outcome" id="out"></div>
-        <div class="mapbox" style="margin-top:1rem"><div id="smap"></div><div class="legend" id="slegend"></div></div>
+        <div class="mapbox" style="margin-top:1rem"><div class="map-ctl" id="ufslot"></div><div id="smap"></div><div class="legend" id="slegend"></div></div>
         <div class="grid g2" style="margin-top:1rem">
           <div class="card"><h3>Quais critérios mais eliminam</h3><div id="elim"></div></div>
           <div class="card"><h3>Municípios que atendem</h3><div id="oklist"></div></div>
@@ -1124,8 +1142,10 @@ function rankTable(rows, cols, valueKey, fmtV) {
   return `<div class="scroll"><table class="rkt"><thead><tr><th></th>${cols.map(c => `<th class="${c.r ? "r" : ""}">${c.h}</th>`).join("")}<th class="r">${esc(fmtV.h)}</th><th style="width:22%"></th></tr></thead><tbody>
     ${rows.map((r, i) => `<tr><td class="rank">${i + 1}</td>${cols.map(c => `<td class="${c.r ? "r" : ""}">${c.f(r)}</td>`).join("")}<td class="r">${fmtV.f(r[valueKey])}</td><td><span class="track" style="display:block"><div class="fill" style="width:${Math.max(.4, 100 * (r[valueKey] || 0) / max)}%"></div></span></td></tr>`).join("")}</tbody></table></div>`;
 }
+// sub-options are pickers (same look as "Brasil inteiro"), never tab rows
+const picker = (label, opts, value) => `<select class="pick" aria-label="${esc(label)}" onchange="location.hash = this.value">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === value ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
 function pixToggle(base, pix) {
-  return `<div class="subtabs" style="margin-bottom:.7rem"><a class="${pix ? "" : "on"}" href="${base}">todas as emendas individuais</a><a class="${pix ? "on" : ""}" href="${base}?pix=1">só emendas Pix</a></div>`;
+  return `<div class="pagebar" style="margin:0 0 .7rem">${picker("Tipo de emenda", [[base, "Todas as emendas individuais"], [base + "?pix=1", "Só emendas Pix"]], pix ? base + "?pix=1" : base)}</div>`;
 }
 const autoresRank = (casa, base) => async params => {
   const pix = params.get("pix") === "1";
@@ -1303,6 +1323,105 @@ LIMIT 10;</pre><p class="note" style="margin-top:.6rem">Funciona no <a href="htt
   } catch (e) { fail(e, "a tabela"); }
 }
 
+// ================================================================ FALAS
+// What was said: election debates and interviews, machine-transcribed,
+// every line linked to the second it was said in the recording.
+const fmtT = sec => { sec = Math.floor(sec || 0); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const hl = (text, term) => { const t = esc(text); if (!term) return t; const n = norm(term); const src = norm(text); let out = "", i = 0, k;
+  while (n && (k = src.indexOf(n, i)) >= 0) { out += esc(text.slice(i, k)) + "<mark>" + esc(text.slice(k, k + n.length)) + "</mark>"; i = k + n.length; }
+  return n ? out + esc(text.slice(i)) : t; };
+const ytId = url => (String(url || "").match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/) || [])[1];
+const falaHref = (r, term) => r.tipo === "debate" ? `#/falas/d/${r.debate_id}?g=${r.gravacao}&t=${Math.floor(r.ini)}${term ? "&q=" + encodeURIComponent(term) : ""}` : `#/falas/v/${r.source_id}?t=${Math.floor(r.ini)}${term ? "&q=" + encodeURIComponent(term) : ""}`;
+const TR_NOTE = m => `Transcrição automática (${m && m.startsWith("whisper") ? "Whisper " + esc(m.split(":")[1] || "") : "legendas automáticas do YouTube"}): pode conter erros de escuta. Ainda não identificamos quem fala em cada trecho. Clique numa linha para ouvir.`;
+const debTitle = d => `${d.cargo === "presidente" || !d.cargo ? "Presidente" : titleCase(d.cargo)} ${d.ano}${d.turno ? ` · ${d.turno}º turno` : ""}${d.emissora ? " · " + d.emissora : ""}`;
+
+function transcript(host, {videoId, segments, metodo, params}) {
+  const q0 = params.get("q") || "", t0 = +params.get("t") || null;
+  host.innerHTML = `<div class="fala-grid">
+      <div class="card tr" id="tr">${segments.map((s, k) => `<p data-k="${k}" data-t="${s.ini}"><time>${fmtT(s.ini)}</time><span>${hl(s.text, q0)}</span></p>`).join("")}</div>
+      <div class="player"><div class="frame" id="frame">${videoId ? "" : '<p class="note" style="color:#ccc;padding:1rem">gravação indisponível</p>'}</div>
+        <p class="note" style="margin-top:.5rem">${TR_NOTE(metodo)}</p><p class="note" id="trc" style="margin-top:.3rem"></p></div></div>`;
+  const frame = document.getElementById("frame"), tr = document.getElementById("tr"), rows = [...tr.querySelectorAll("p")];
+  const play = (sec, auto) => { if (videoId) frame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}?start=${Math.floor(sec)}${auto ? "&autoplay=1" : ""}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen title="Gravação"></iframe>`; };
+  // scroll only the transcript box, never the page
+  const mark = p => { rows.forEach(r => r.classList.toggle("cur", r === p)); if (p) tr.scrollTo({top: p.offsetTop - tr.clientHeight / 2 + p.offsetHeight / 2, behavior: "smooth"}); };
+  tr.onclick = e => { const p = e.target.closest("p"); if (!p) return; mark(p); play(+p.dataset.t, true); };
+  let hits = [], hi = -1;
+  window.onTrecho = term => {
+    const n = norm(term); hits = [];
+    rows.forEach((p, k) => { const sgm = segments[k]; const ok = !n || norm(sgm.text).includes(n); p.hidden = false; p.querySelector("span").innerHTML = hl(sgm.text, term); if (n && ok) hits.push(p); });
+    document.getElementById("trc").textContent = n ? `${hits.length} trecho(s) com “${term}” · Enter vai para o próximo` : "";
+    hi = -1; if (hits.length) { hi = 0; mark(hits[0]); }
+  };
+  window.onTrechoNext = () => { if (!hits.length) return; hi = (hi + 1) % hits.length; mark(hits[hi]); };
+  const start = t0 != null ? rows.find((p, k) => segments[k].ini >= t0 - 1) : null;
+  play(start ? +start.dataset.t : 0, false);
+  if (start) setTimeout(() => mark(start), 50);
+  if (q0) { document.getElementById("q").value = q0; window.onTrecho(q0); if (start) setTimeout(() => mark(start), 80); }
+}
+
+async function viewDebates() {
+  setCtx([["Falas"], ["Debates presidenciais"]], {ai: `Quero explorar as transcrições de debates presidenciais: lista em https://api.caramelo.dev.br/falas/debates, texto em ${LAKE}/transcricoes.parquet (source_kind = 'debate', source_id = '<debate_id>/<gravação>', start_s em segundos) e metadados em ${LAKE}/debates.parquet.`});
+  loading("carregando debates…");
+  let d; try { d = await get("/falas/debates"); } catch (e) { return fail(e, "os debates"); }
+  const anos = [...new Set(d.map(x => x.ano))].sort((a, b) => b - a);
+  const tr = d.filter(x => x.transcrito);
+  view.innerHTML = `<h1>Debates presidenciais</h1>
+    <p class="lede">${nf(d.length)} debates de ${anos.at(-1)} a ${anos[0]}; ${nf(tr.length)} transcritos (${nf(tr.reduce((s, x) => s + x.minutos, 0))} minutos). Busque uma palavra no topo para achar quem falou dela e quando.</p>
+    ${anos.map(a => `<h2 style="margin-top:1.3rem">${a}</h2><div class="dcards">${d.filter(x => x.ano === a).map(x => `<a class="dcard" href="#/falas/d/${x.debate_id}"><b>${x.turno ? x.turno + "º turno" : "Debate"}${x.emissora ? " · " + esc(x.emissora) : ""}</b>
+      <small>${esc(x.data || "")}${(x.participantes || []).length ? " · " + esc(x.participantes.join(", ")) : ""}</small><br>
+      <small>${x.transcrito ? `${nf(x.minutos)} min transcritos` : "ainda sem transcrição"}${x.status === "verificar" ? " · dados a verificar" : ""}</small></a>`).join("")}</div>`).join("")}
+    <p class="note" style="margin-top:1rem">“Dados a verificar”: data, emissora e participantes ainda não conferidos com fonte primária (TSE, acervo da emissora).</p>`;
+}
+async function viewDebate(id, params) {
+  loading("carregando debate…");
+  let d; try { d = await get("/falas/debates/" + encodeURIComponent(id)); } catch (e) { return fail(e, "o debate"); }
+  const g = Math.min(+params.get("g") || 0, Math.max(0, d.gravacoes.length - 1));
+  const rec = d.gravacoes[g];
+  setCtx([["Falas"], ["Debates presidenciais", "#/falas/debates"], [debTitle(d)]], {ai: `Debate ${debTitle(d)} (id ${id}${(d.participantes || []).length ? ", participantes: " + d.participantes.join(", ") : ""}). Transcrição com tempos: https://api.caramelo.dev.br/falas/debates/${id}. A transcrição é automática e não identifica quem fala.`});
+  setView("falas:debates", rec ? "trecho" : "fala");
+  view.innerHTML = `<h1>Debate · ${esc(debTitle(d))}</h1>
+    <p class="lede">${esc(d.data || "")}${(d.participantes || []).length ? " · " + esc(d.participantes.join(", ")) : ""}${d.status === "verificar" ? ' · <span class="note">dados do debate a verificar</span>' : ""}</p>
+    ${d.gravacoes.length > 1 ? `<div class="pagebar">${picker("Parte da gravação", d.gravacoes.map(x => [`#/falas/d/${id}?g=${x.n}`, `Parte ${x.n + 1} de ${d.gravacoes.length}`]), `#/falas/d/${id}?g=${rec.n}`)}</div>` : ""}
+    <div id="trhost">${rec ? "" : `<p class="note" style="margin-top:1rem">Este debate ainda não foi transcrito.${(d.fontes || []).length ? ` Gravação: ${d.fontes.map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`).join(" · ")}` : ""}</p>`}</div>`;
+  if (rec) transcript(document.getElementById("trhost"), {videoId: ytId(rec.url), segments: rec.segmentos, metodo: d.metodo, params});
+}
+async function viewVideoFala(vid, params) {
+  loading("carregando transcrição…");
+  let d; try { d = await get("/falas/videos/" + encodeURIComponent(vid)); } catch (e) { return fail(e, "a transcrição"); }
+  const who = d.parlamentar_id ? (d.casa === "senado" ? `#/s/${d.parlamentar_id}` : `#/p/${d.parlamentar_id}`) : null;
+  setCtx([["Falas"], [d.programa ? "Entrevistas" : "Vídeos", d.programa ? "#/falas/entrevistas" : null], [trim(d.titulo || vid, 60)]], {ai: `Vídeo do YouTube ${d.url} (“${d.titulo || ""}”). Transcrição com tempos: https://api.caramelo.dev.br/falas/videos/${vid}.`});
+  setView(d.programa ? "falas:entrevistas" : "falas:busca", "trecho");
+  view.innerHTML = `<h1>${esc(d.titulo || vid)}</h1>
+    <p class="lede">${esc(d.data || "")}${d.convidado ? " · " + esc(d.convidado) : ""}${who ? ` · <a href="${who}">perfil do parlamentar</a>${casaPill(d.casa)}` : ""} · <a href="${esc(d.url)}" target="_blank" rel="noopener">abrir no YouTube</a></p><div id="trhost"></div>`;
+  transcript(document.getElementById("trhost"), {videoId: vid, segments: d.segmentos, metodo: d.metodo, params});
+}
+async function viewEntrevistas() {
+  setCtx([["Falas"], ["Entrevistas"]], {ai: `Quero explorar entrevistas longas com políticos (Roda Viva): lista em ${LAKE}/entrevistas.parquet ou https://api.caramelo.dev.br/falas/entrevistas; transcrições, quando existem, em ${LAKE}/transcricoes.parquet (source_kind = 'youtube', source_id = video_id).`});
+  loading("carregando entrevistas…");
+  let d; try { d = await get("/falas/entrevistas?limit=2000"); } catch (e) { return fail(e, "as entrevistas"); }
+  const tr = d.filter(x => x.transcrito).length;
+  view.innerHTML = `<h1>Entrevistas</h1>
+    <p class="lede">${nf(d.length)} entrevistas do Roda Viva publicadas no YouTube${tr ? `, ${nf(tr)} já transcritas` : "; as transcrições estão sendo feitas aos poucos"}. Busque o entrevistado no topo.</p>
+    <div class="card" style="margin-top:1rem"><div class="scroll"><table><thead><tr><th>Entrevistado</th><th>Publicado</th><th class="r">Min.</th><th></th></tr></thead><tbody>
+    ${d.slice(0, 400).map(x => `<tr><td>${esc(x.convidado || x.titulo)}${x.parlamentar_id ? casaPill(x.casa) : ""}</td><td class="note">${esc(x.data || "")}</td><td class="r">${nf(x.minutos)}</td>
+      <td>${x.transcrito ? `<a href="#/falas/v/${x.video_id}">transcrição</a>` : `<a href="https://www.youtube.com/watch?v=${x.video_id}" target="_blank" rel="noopener">vídeo ↗</a>`}</td></tr>`).join("")}</tbody></table></div>
+    ${d.length > 400 ? `<p class="note" style="margin-top:.5rem">Mostrando 400 de ${nf(d.length)}; use a busca para os demais.</p>` : ""}</div>`;
+}
+async function viewBuscaFalas(params) {
+  const q = params.get("q") || "";
+  setCtx([["Falas"], ["Buscar no que foi dito"]].concat(q ? [[`“${q}”`]] : []), {ai: `Quero analisar o que foi dito sobre “${q || "…"}” em debates e vídeos: https://api.caramelo.dev.br/falas/busca?q=${encodeURIComponent(q)} (texto em ${LAKE}/transcricoes.parquet).`});
+  if (q) document.getElementById("q").value = q;
+  if (!q) { view.innerHTML = `<h1>Buscar no que foi dito</h1><p class="lede">Digite uma palavra ou frase na busca do topo (ex.: saneamento, corrupção, Bolsa Família) para achar cada momento em que ela foi dita nos debates e vídeos transcritos.</p>`; return; }
+  loading("buscando…");
+  let d; try { d = await get("/falas/busca?limit=300&q=" + encodeURIComponent(q)); } catch (e) { return fail(e, "a busca"); }
+  const groups = {}; for (const r of d) (groups[r.titulo] ||= []).push(r);
+  view.innerHTML = `<h1>“${esc(q)}” no que foi dito</h1>
+    <p class="lede">${d.length === 300 ? "Primeiros 300 trechos" : nf(d.length) + " trecho(s)"} em ${nf(Object.keys(groups).length)} gravação(ões). Clique no tempo para ouvir.</p>
+    <div class="card hits" style="margin-top:1rem">${Object.entries(groups).map(([t, rs]) => `<h3>${esc(t)} <span class="note">(${rs.length})</span></h3>${rs.map(r => `<div class="hit"><a href="${falaHref(r, q)}">${fmtT(r.ini)}</a><span>${hl(r.text, q)}</span></div>`).join("")}`).join("") || '<p class="note">Nada encontrado.</p>'}</div>
+    <p class="note" style="margin-top:.6rem">Busca por texto exato (sem acentos) em transcrições automáticas: grafias erradas da transcrição não aparecem.</p>`;
+}
+
 // ================================================================ VIEWS
 // One selector picks what you are looking at (map indicator, simulation,
 // people list, bills, data); the search box next to it searches whatever
@@ -1317,6 +1436,9 @@ function buildViews() {
     for (const [sub, [lbl]] of Object.entries(P.subs))
       V.push({id: `pessoas:${casa}:${sub}`, grp: P.label, cls: casa, label: casa === "coletivas" ? lbl : lbl + (casa === "camara" ? " · deputados" : " · senadores"), kw: "pessoas parlamentares ranking " + P.label, href: `#/pessoas/${casa}/${sub}`, scope: casa === "coletivas" ? null : "pessoa"});
   V.push({id: "comparar", grp: "Pessoas", label: "Comparar dois parlamentares", kw: "comparar deputado senador", href: "#/comparar", scope: "pessoa"});
+  V.push({id: "falas:debates", grp: "Falas", label: "Debates presidenciais", kw: "debates eleicao presidente candidatos transcricao", href: "#/falas/debates", scope: "fala"});
+  V.push({id: "falas:entrevistas", grp: "Falas", label: "Entrevistas (Roda Viva)", kw: "entrevistas roda viva convidados", href: "#/falas/entrevistas", scope: "entrevista"});
+  V.push({id: "falas:busca", grp: "Falas", label: "Buscar no que foi dito", kw: "falas transcricoes discursos frases palavra", href: "#/falas/busca", scope: "fala"});
   V.push({id: "projetos:camara", grp: "Projetos de lei", cls: "camara", label: "Projetos da Câmara", kw: "leis proposicoes pl pec", href: "#/projetos", scope: "projeto"});
   V.push({id: "projetos:senado", grp: "Projetos de lei", cls: "senado", label: "Projetos do Senado", kw: "leis proposicoes pl pec", href: "#/projetos?casa=senado", scope: "projeto"});
   V.push({id: "dados:tabelas", grp: "Dados abertos", label: "Todas as tabelas", kw: "parquet tabelas download", href: "#/dados", scope: "tabela"});
@@ -1331,6 +1453,9 @@ const SCOPES = {
   pessoa: "Buscar deputado ou senador…",
   projeto: "Buscar projeto pela ementa (ex.: show, saneamento)…",
   tabela: "Buscar tabela ou coluna (ex.: cnpj, ideb)…",
+  fala: "Buscar no que foi dito (ex.: saneamento, corrupção)…",
+  entrevista: "Buscar entrevistado (ex.: Lula, Marina)…",
+  trecho: "Procurar nesta transcrição…",
 };
 let CUR_SCOPE = "municipio";
 function setView(id, scope) {
@@ -1388,6 +1513,7 @@ let PROPOSTAS = null;
   const show = html => { box.innerHTML = html; box.hidden = false; sel = -1; };
   async function run(term) {
     const my = ++seq, scope = CUR_SCOPE;
+    if (scope === "trecho") { window.onTrecho?.(term); return; }
     if (scope === "tabela") {
       const d = await tabelas().catch(() => []), n = norm(term);
       const hits = d.filter(x => norm(`${x.tabela} ${x.descricao || ""} ${x.colunas.join(" ")}`).includes(n)).slice(0, 10);
@@ -1396,7 +1522,14 @@ let PROPOSTAS = null;
     show(`<div class="note" style="padding:.6rem .85rem">buscando…</div>`);
     try {
       let html = "";
-      if (scope === "projeto") {
+      if (scope === "fala") {
+        const d = await get("/falas/busca?limit=8&q=" + encodeURIComponent(term));
+        html = d.map(r => item(falaHref(r, term), `<span class="note">${fmtT(r.ini)}</span> ${hl(trim(r.text, 80), term)}`, esc(trim(r.titulo, 34)))).join("");
+        if (html) html += item(`#/falas/busca?q=${encodeURIComponent(term)}`, `Todas as falas com “${esc(term)}”`, "↵");
+      } else if (scope === "entrevista") {
+        const d = await get("/falas/entrevistas?limit=10&q=" + encodeURIComponent(term));
+        html = d.map(r => item(r.transcrito ? `#/falas/v/${r.video_id}` : `https://www.youtube.com/watch?v=${r.video_id}`, esc(trim(r.convidado || r.titulo, 60)), esc(trim(r.titulo || "", 40)))).join("");
+      } else if (scope === "projeto") {
         const [bc, bs] = await Promise.all([get("/proposicoes?limit=5&q=" + encodeURIComponent(term)).catch(() => []), get("/senado/proposicoes?limit=5&q=" + encodeURIComponent(term)).catch(() => [])]);
         html = bc.map(b => item(`#/b/${b.id}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 64))}`, casaPill("camara"))).join("")
              + bs.map(b => item(`#/projetos?casa=senado&q=${encodeURIComponent(term)}`, `${esc(b.sigla)} — ${esc(trim(b.ementa, 64))}`, casaPill("senado"))).join("");
@@ -1414,11 +1547,14 @@ let PROPOSTAS = null;
   }
   q.addEventListener("input", () => {
     clearTimeout(t); const term = q.value.trim();
+    if (CUR_SCOPE === "trecho") { t = setTimeout(() => window.onTrecho?.(term), 150); return; }
     if (term.length < 2) { box.hidden = true; return; }
     t = setTimeout(() => run(term), 200);
   });
   q.addEventListener("keydown", e => {
     const links = [...box.querySelectorAll("a")];
+    if (e.key === "Enter" && CUR_SCOPE === "fala" && sel < 0) { e.preventDefault(); location.hash = `#/falas/busca?q=${encodeURIComponent(q.value.trim())}`; box.hidden = true; return; }
+    if (e.key === "Enter" && CUR_SCOPE === "trecho") { e.preventDefault(); window.onTrechoNext?.(); return; }
     if (e.key === "Enter" && CUR_SCOPE === "projeto" && sel < 0) { e.preventDefault(); location.hash = `#/projetos?${CUR_VIEW === "projetos:senado" ? "casa=senado&" : ""}q=${encodeURIComponent(q.value.trim())}`; box.hidden = true; return; }
     if (box.hidden || !links.length) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + links.length) % links.length; links.forEach((a, i) => a.classList.toggle("sel", i === sel)); links[sel].scrollIntoView({block: "nearest"}); }
@@ -1457,10 +1593,10 @@ function route() {
     projetos: [params.get("casa") === "senado" ? "projetos:senado" : "projetos:camara"], b: ["projetos:camara", "projeto"],
     dados: [parts[1] === "panoramas" ? "dados:pan:" + (PANORAMAS[parts[2]] ? parts[2] : "categorias") : parts[1] === "dev" ? "dados:dev" : "dados:tabelas"],
     t: ["dados:tabelas", "tabela"],
+    falas: [parts[1] === "entrevistas" ? "falas:entrevistas" : parts[1] === "busca" || parts[1] === "v" ? "falas:busca" : "falas:debates"],
   }[top] || [mapView];
   setView(vid, scope);
   window.scrollTo(0, 0);
-  ctxEl.innerHTML = "";
   if (top === "m") return viewMunicipio(parts[1]);
   if (top === "p") return viewPolitico(parts[1]);
   if (top === "s") return viewSenador(parts[1]);
@@ -1471,6 +1607,14 @@ function route() {
   if (top === "pessoas") return viewPessoas(parts[1], parts[2], params);
   if (top === "comparar") return viewComparar();
   if (top === "dados") return viewDados(parts[1] || "", parts[2], params);
+  if (top === "falas") {
+    window.onTrecho = window.onTrechoNext = null;
+    if (parts[1] === "d") return viewDebate(parts[2], params);
+    if (parts[1] === "v") return viewVideoFala(parts[2], params);
+    if (parts[1] === "entrevistas") return viewEntrevistas();
+    if (parts[1] === "busca") return viewBuscaFalas(params);
+    return viewDebates();
+  }
   return viewHome(params);
 }
 addEventListener("hashchange", route);

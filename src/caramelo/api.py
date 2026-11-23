@@ -237,6 +237,48 @@ def senado_proposicoes(senador_id: int | None = None, q: str | None = None,
                                      sigla_tipo=sigla_tipo, limit=limit)
 
 
+@app.get("/falas/debates", operation_id="debates",
+         summary="Election debates, with how much of each is transcribed")
+def falas_debates(response: Response) -> list[dict]:
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return domain.debates(lake())
+
+
+@app.get("/falas/debates/{debate_id}", operation_id="debate",
+         summary="One debate: metadata and timestamped transcript")
+def falas_debate(debate_id: str, response: Response) -> dict:
+    result = domain.debate(lake(), debate_id)
+    if not result:
+        raise HTTPException(404, "debate não encontrado")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return result
+
+
+@app.get("/falas/entrevistas", operation_id="entrevistas",
+         summary="Long-form interviews (Roda Viva…), newest first")
+def falas_entrevistas(q: str | None = None,
+                      limit: int = Query(200, le=2000)) -> list[dict]:
+    return domain.entrevistas(lake(), q=q, limit=limit)
+
+
+@app.get("/falas/videos/{video_id}", operation_id="video_fala",
+         summary="Timestamped transcript of one YouTube video")
+def falas_video(video_id: str) -> dict:
+    result = domain.video_fala(lake(), video_id)
+    if not result:
+        raise HTTPException(404, "transcrição não encontrada")
+    return result
+
+
+@app.get("/falas/busca", operation_id="busca_falas",
+         summary="Search what was said: transcript segments containing a "
+                 "word or phrase, with source and timestamp")
+def falas_busca(q: str, tipo: str | None = Query(
+                    None, pattern="^(debate|youtube)$"),
+                limit: int = Query(60, le=300)) -> list[dict]:
+    return domain.busca_falas(lake(), q, tipo=tipo, limit=limit)
+
+
 @app.get("/proposicoes/{proposicao_id}", operation_id="proposicao",
          summary="One Câmara bill: authors, themes, attached bills, votes")
 def proposicao(proposicao_id: int) -> dict:
