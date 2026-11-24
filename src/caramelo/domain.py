@@ -1087,6 +1087,13 @@ def debate(lake: Lake, debate_id: str) -> dict:
                            "segmentos": v} for n, v in sorted(grav.items())]}
 
 
+# When an interview aired: its date, or only its year for archive episodes
+# re-uploaded later ("Roda Viva Retrô | X | 1986", uploaded in 2020) whose
+# upload date would otherwise pass for the air date.
+_EXIBIDO = ("CASE WHEN data IS NULL AND ano < try_cast(substr(published_at, 1, 4) AS INT) "
+            "THEN CAST(ano AS VARCHAR) ELSE coalesce(data, substr(published_at, 1, 10)) END")
+
+
 def entrevistas(lake: Lake, *, q: str | None = None,
                 limit: int = 200) -> list[dict]:
     """Long-form interviews (e.g. Roda Viva), newest first."""
@@ -1101,11 +1108,11 @@ def entrevistas(lake: Lake, *, q: str | None = None,
           "WHERE source_kind = 'youtube')") if lake.has("transcricoes") else "false"
     return lake.q(f"""
         SELECT programa, video_id, convidado, titulo,
-               coalesce(data, substr(published_at, 1, 10)) AS data,
+               {_EXIBIDO} AS data, ano,
                round(duration_s / 60) AS minutos, casa, parlamentar_id,
                {tr} AS transcrito
         FROM {lake.table('entrevistas')} WHERE {where}
-        ORDER BY data DESC NULLS LAST LIMIT ?""", [*params, limit])
+        ORDER BY ano DESC NULLS LAST, data DESC LIMIT ?""", [*params, limit])
 
 
 def video_fala(lake: Lake, video_id: str) -> dict:
@@ -1122,7 +1129,7 @@ def video_fala(lake: Lake, video_id: str) -> dict:
     if not segs:
         return {}
     meta: dict = {"video_id": video_id}
-    for t, sql in (("entrevistas", "SELECT titulo, convidado, programa, coalesce(data, substr(published_at, 1, 10)) AS data, casa, parlamentar_id FROM {} WHERE video_id = ?"),
+    for t, sql in (("entrevistas", f"SELECT titulo, convidado, programa, {_EXIBIDO} AS data, ano, casa, parlamentar_id FROM {{}} WHERE video_id = ?"),
                    ("youtube_videos", "SELECT title AS titulo, substr(published_at, 1, 10) AS data, casa, parlamentar_id FROM {} WHERE video_id = ?")):
         if lake.has(t):
             hit = lake.q(sql.format(lake.table(t)), [video_id])

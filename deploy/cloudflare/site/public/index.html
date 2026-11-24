@@ -1455,17 +1455,24 @@ async function viewVideoFala(vid, params) {
     <p class="lede">${esc(d.data || "")}${d.convidado ? " · " + esc(d.convidado) : ""}${who ? ` · <a href="${who}">perfil do parlamentar</a>${casaPill(d.casa)}` : ""} · <a href="${esc(d.url)}" target="_blank" rel="noopener">abrir no YouTube</a></p><div id="trhost"></div>`;
   transcript(document.getElementById("trhost"), {videoId: vid, segments: d.segmentos, metodo: d.metodo, params});
 }
-async function viewEntrevistas() {
+async function viewEntrevistas(params = new URLSearchParams()) {
   setCtx([["Falas"], ["Entrevistas"]], {ai: `Quero explorar entrevistas longas com políticos (Roda Viva): lista em ${LAKE}/entrevistas.parquet ou https://api.caramelo.dev.br/falas/entrevistas; transcrições, quando existem, em ${LAKE}/transcricoes.parquet (source_kind = 'youtube', source_id = video_id).`});
   loading("carregando entrevistas…");
   let d; try { d = await get("/falas/entrevistas?limit=2000"); } catch (e) { return fail(e, "as entrevistas"); }
   const tr = d.filter(x => x.transcrito).length;
+  // decade + "only transcribed" filters, so the archive reads across time
+  const dec = params.get("decada") || "", so = params.get("tr") === "1";
+  const decs = [...new Set(d.filter(x => x.ano).map(x => Math.floor(x.ano / 10) * 10))].sort((a, b) => a - b);
+  const href = (dd, t) => "#/falas/entrevistas" + ((dd || t) ? "?" + [dd ? "decada=" + dd : "", t ? "tr=1" : ""].filter(Boolean).join("&") : "");
+  const rows = d.filter(x => (!dec || (x.ano && Math.floor(x.ano / 10) * 10 === +dec)) && (!so || x.transcrito));
   view.innerHTML = `<h1>Entrevistas</h1>
-    <p class="lede">${nf(d.length)} entrevistas do Roda Viva publicadas no YouTube${tr ? `, ${nf(tr)} já transcritas` : "; as transcrições estão sendo feitas aos poucos"}. Busque o entrevistado no topo.</p>
-    <div class="card" style="margin-top:1rem"><div class="scroll"><table><thead><tr><th>Entrevistado</th><th>Publicado</th><th class="r">Min.</th><th></th></tr></thead><tbody>
-    ${d.slice(0, 400).map(x => `<tr><td>${esc(x.convidado || x.titulo)}${x.parlamentar_id ? casaPill(x.casa) : ""}</td><td class="note">${esc(x.data || "")}</td><td class="r">${nf(x.minutos)}</td>
-      <td>${x.transcrito ? `<a href="#/falas/v/${x.video_id}">transcrição</a>` : `<a href="https://www.youtube.com/watch?v=${x.video_id}" target="_blank" rel="noopener">vídeo ↗</a>`}</td></tr>`).join("")}</tbody></table></div>
-    ${d.length > 400 ? `<p class="note" style="margin-top:.5rem">Mostrando 400 de ${nf(d.length)}; use a busca para os demais.</p>` : ""}</div>`;
+    <p class="lede">${nf(d.length)} entrevistas do Roda Viva (${Math.min(...d.filter(x => x.ano).map(x => x.ano))}–${Math.max(...d.filter(x => x.ano).map(x => x.ano))}) publicadas no YouTube${tr ? `, ${nf(tr)} já transcritas` : "; as transcrições estão sendo feitas aos poucos"}. Programas antigos aparecem pelo ano em que foram ao ar. Busque o entrevistado no topo.</p>
+    <div class="pagebar">${picker("Década", [[href("", so), "Todas as décadas"], ...decs.map(x => [href(x, so), `Anos ${x}`])], href(dec, so))}
+      ${picker("Transcrição", [[href(dec, false), "Com e sem transcrição"], [href(dec, true), "Só as transcritas"]], href(dec, so))}</div>
+    <div class="card" style="margin-top:1rem"><div class="scroll"><table><thead><tr><th>Entrevistado</th><th>Exibido</th><th class="r">Min.</th><th></th></tr></thead><tbody>
+    ${rows.slice(0, 400).map(x => `<tr><td>${esc(x.convidado || x.titulo)}${x.parlamentar_id ? casaPill(x.casa) : ""}</td><td class="note">${esc(x.data || "")}</td><td class="r">${nf(x.minutos)}</td>
+      <td>${x.transcrito ? `<a href="#/falas/v/${x.video_id}">transcrição</a>` : `<a href="https://www.youtube.com/watch?v=${x.video_id}" target="_blank" rel="noopener">vídeo ↗</a>`}</td></tr>`).join("") || '<tr><td colspan="4" class="note">Nada neste filtro.</td></tr>'}</tbody></table></div>
+    ${rows.length > 400 ? `<p class="note" style="margin-top:.5rem">Mostrando 400 de ${nf(rows.length)}; escolha uma década ou use a busca.</p>` : ""}</div>`;
 }
 async function viewBuscaFalas(params) {
   const q = params.get("q") || "";
@@ -1772,7 +1779,7 @@ function route() {
     window.onTrecho = window.onTrechoNext = null;
     if (parts[1] === "d") return viewDebate(parts[2], params);
     if (parts[1] === "v") return viewVideoFala(parts[2], params);
-    if (parts[1] === "entrevistas") return viewEntrevistas();
+    if (parts[1] === "entrevistas") return viewEntrevistas(params);
     if (parts[1] === "busca") return viewBuscaFalas(params);
     return viewDebates();
   }
