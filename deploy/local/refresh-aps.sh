@@ -42,7 +42,7 @@ main() {
   import json,sys,datetime as d
   g=json.load(open(sys.argv[1]))["generated_at"]
   print(int((d.datetime.now(d.timezone.utc)-d.datetime.fromisoformat(g.replace("Z","+00:00"))).total_seconds()))' "$D/manifest.json")
-  if [ "$age" -lt 1800 ]; then
+  if [ "$age" -lt "${CARAMELO_APS_MIN_AGE:-1800}" ]; then
     echo "refresh-aps: manifest only ${age}s old (run just published); skipping"; exit 0
   fi
 
