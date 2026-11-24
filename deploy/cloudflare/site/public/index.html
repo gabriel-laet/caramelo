@@ -1206,8 +1206,8 @@ const redesRank = (casa, rede) => async () => {
   const [d, fontes] = await Promise.all([get(`/rankings/redes?casa=${casa}&rede=${rede}&limit=60`), get("/midia/fontes").catch(() => [])]);
   const f = fontes.find(x => x.rede === rede);
   const yt = rede === "youtube";
-  return `<p class="note" style="margin-bottom:.6rem">${yt ? "Inscritos no canal oficial do YouTube que o parlamentar informa à Câmara" : "Seguidores da conta no X (Twitter) ligada ao parlamentar"}, na última coleta. Audiência não mede representatividade: contas antigas e de quem já era famoso antes do mandato tendem a ser maiores.${f && f.ate ? ` Últimos 90 dias contados até ${esc(f.ate.split("-").reverse().join("/"))}.` : ""}</p>
-    ${rankTable(d, [{h: casa === "senado" ? "Senador(a)" : "Deputado(a)", f: pessoaCell(casa)}, partUF, {h: "Conta", f: r => r.handle ? `<a href="${yt ? "https://www.youtube.com/@" : "https://x.com/"}${esc(r.handle)}" target="_blank" rel="noopener">@${esc(r.handle)}</a>` : "—"}, {h: yt ? "Vídeos" : "Posts (total)", r: 1, f: r => nf(r.total)}, {h: "Últimos 90 dias", r: 1, f: r => nf(r.ultimos_90d)}], "seguidores", {h: yt ? "Inscritos" : "Seguidores", f: v => compact(v)})}
+  return `<p class="note" style="margin-bottom:.6rem">${yt ? "Inscritos no canal oficial do YouTube que o parlamentar informa à Câmara" : "Seguidores da conta no X (Twitter) ligada ao parlamentar"}, na última coleta. Audiência não mede representatividade: contas antigas e de quem já era famoso antes do mandato tendem a ser maiores.${!yt && f && f.ate ? ` Seguidores e posts são da coleta que vai até ${fmtD(f.ate)}.` : ""}</p>
+    ${rankTable(d, [{h: casa === "senado" ? "Senador(a)" : "Deputado(a)", f: pessoaCell(casa)}, partUF, {h: "Conta", f: r => r.handle ? `<a href="${yt ? "https://www.youtube.com/@" : "https://x.com/"}${esc(r.handle)}" target="_blank" rel="noopener">@${esc(r.handle)}</a>` : "—"}, {h: yt ? "Vídeos" : "Posts (total)", r: 1, f: r => nf(r.total)}].concat(yt ? [{h: "Últimos 90 dias", r: 1, f: r => nf(r.ultimos_90d)}] : [{h: "Posts coletados", r: 1, f: r => nf(r.coletados)}, {h: "Último", f: r => `<span class="note">${fmtD(r.ultimo)}</span>`}]), "seguidores", {h: yt ? "Inscritos" : "Seguidores", f: v => compact(v)})}
     <p style="margin-top:.6rem"><a href="#/midia?casa=${casa}&rede=${rede}">O que estão publicando →</a></p>`;
 };
 const RANKS = {
@@ -1503,12 +1503,12 @@ function fontesLine(fontes) {
   return `<div class="fontes">${fontes.map(f => {
     const dias = f.ate ? Math.round((hoje - Date.parse(f.ate)) / 864e5) : null;
     const old = dias != null && dias > 14;
-    return `<span${old ? ' class="old"' : ""}><b>${REDE_LBL[f.rede]}</b> ${nf(f.itens)} itens · ${nf(f.pessoas)} parlamentares · até ${fmtD(f.ate)}${old ? ` (coleta parada há ${nf(dias)} dias)` : ""}</span>`;
+    return `<span${old ? ' class="old"' : ""}><b>${REDE_LBL[f.rede]}</b> ${nf(f.itens)} itens · ${nf(f.pessoas)} parlamentares · até ${fmtD(f.ate)}${old ? ` (sem coleta nova há ${nf(dias)} dias; use o período “Tudo”)` : ""}</span>`;
   }).join("")}</div>`;
 }
 async function viewMidia(params) {
   const q = (params.get("q") || "").trim(), casa = params.get("casa") || "", rede = params.get("rede") || "",
-        dias = params.get("dias") || (q ? "365" : "30"), pid = params.get("id") || "";
+        dias = params.get("dias") || (q || params.get("rede") === "x" ? (params.get("rede") === "x" ? "3650" : "365") : "30"), pid = params.get("id") || "";
   const hrefWith = (k, v) => { const p = new URLSearchParams(params); v ? p.set(k, v) : p.delete(k); if (k !== "pagina") p.delete("pagina"); return "#/midia?" + p; };
   const qs = new URLSearchParams({dias}); if (casa) qs.set("casa", casa); if (rede) qs.set("rede", rede); if (q) qs.set("q", q); if (pid) qs.set("parlamentar_id", pid);
   setCtx([["Redes e mídia"], ["Monitor"]].concat(q ? [[`“${q}”`]] : []), {ai: `Quero analisar o que parlamentares brasileiros publicam${q ? ` sobre “${q}”` : ""}. Feed: https://api.caramelo.dev.br/midia/feed?${qs}. Palavras: https://api.caramelo.dev.br/midia/termos?dias=${dias}. Assunto: https://api.caramelo.dev.br/midia/assunto?q=… Tabelas: ${LAKE}/posts.parquet (X), ${LAKE}/youtube_videos.parquet, ${LAKE}/youtube_stats.parquet, ${LAKE}/media.parquet (notícias), ${LAKE}/x_users.parquet, ${LAKE}/youtube_canais.parquet. Não classifique tom, sentimento ou veracidade; conte e cite as publicações.`});

@@ -1571,8 +1571,10 @@ def ranking_redes(lake: Lake, *, casa: str = "camara", rede: str = "x",
                w.partido, w.uf, u.handle, u.followers AS seguidores,
                u.tweets_total AS total,
                (SELECT count(*) FROM {lake.table('posts')} p
-                WHERE p.user_id = u.user_id AND coalesce(p.ref_type, '') <> 'retweeted'
-                  AND p.created_at >= strftime(current_date - 90, '%Y-%m-%d')) AS ultimos_90d
+                WHERE p.user_id = u.user_id
+                  AND coalesce(p.ref_type, '') <> 'retweeted') AS coletados,
+               (SELECT substr(max(p.created_at), 1, 10) FROM {lake.table('posts')} p
+                WHERE p.user_id = u.user_id) AS ultimo
         FROM {lake.table('x_users')} u
         LEFT JOIN {quem} w ON w.casa = u.casa AND w.parlamentar_id = u.parlamentar_id
         WHERE u.casa = ? AND u.parlamentar_id IS NOT NULL
