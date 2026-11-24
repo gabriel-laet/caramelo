@@ -505,14 +505,20 @@ def _discover(c: dict, client: YouTubeClient, cursor: dict,
 
 def archive(data_dir: Path, archive_root: Path, *, limit: int = 200,
             audio: bool = False, since: str | None = None,
-            video_ids: set[str] | None = None) -> None:
+            video_ids: set[str] | None = None,
+            order: list[str] | None = None) -> None:
     """Pull captions (+ audio with --audio) for videos not yet archived,
-    newest first. Runs on the local network (YouTube bot-checks datacenter
-    IPs), writing into the NAS archive."""
+    newest first (or in `order`, a priority list of video ids). Runs on the
+    local network (YouTube bot-checks datacenter IPs), writing into the NAS
+    archive."""
     from caramelo import archive as arc
 
     videos = pq.read_table(data_dir / "youtube_videos.parquet").to_pylist()
     videos.sort(key=lambda v: v["published_at"] or "", reverse=True)
+    if order is not None:
+        rank = {vid: i for i, vid in enumerate(order)}
+        videos = sorted((v for v in videos if v["video_id"] in rank),
+                        key=lambda v: rank[v["video_id"]])
     done = failed = 0
     for v in videos:
         if done + failed >= limit:

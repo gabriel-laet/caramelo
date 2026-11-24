@@ -255,12 +255,12 @@ def main(argv: list[str] | None = None) -> None:
         elif args.platform == "entrevistas":
             import pyarrow.parquet as _pq
 
-            from caramelo.harvesters import youtube
-            ids = {r["video_id"] for r in _pq.read_table(
-                args.data_dir / "entrevistas.parquet",
-                columns=["video_id"]).to_pylist()}
+            from caramelo.harvesters import programas, youtube
+            rows = _pq.read_table(args.data_dir / "entrevistas.parquet").to_pylist()
+            order = programas.archive_order(rows)
             youtube.archive(args.data_dir, root, limit=args.limit, audio=True,
-                            since=args.since, video_ids=ids)
+                            since=args.since, video_ids=set(order),
+                            order=order)
         elif args.platform == "instagram":
             from caramelo.harvesters import instagram
             instagram.archive(args.data_dir, root, limit=args.limit,

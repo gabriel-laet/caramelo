@@ -288,7 +288,8 @@ uf = "BR"
 emissora = "TV Globo"
 data = "2014-10-24"
 participantes = ["Dilma", "Aécio Neves"]
-fontes = []
+# 67 min upload of a ~2h broadcast: likely partial
+fontes = ["https://www.youtube.com/watch?v=kYMujdpFw98"]
 status = "verificar"
 
 [[debate]]
@@ -336,5 +337,44 @@ uf = "BR"
 emissora = "Band"
 # data: verificar
 participantes = ["Lula", "Flávio Bolsonaro"]
-fontes = ["https://www.youtube.com/watch?v=X1fp4JzouvA"]
+fontes = ["https://www.youtube.com/watch?v=X1fp4JzouvA",
+          "https://www.youtube.com/watch?v=RugVB17uRVM"]
+status = "verificar"
+
+[[debate]]
+id = "2014-presidente-br-t1-sbt"
+ano = 2014
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "SBT"
+data = "2014-09-01"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=B5hR2Gy84Zc"]  # SBT News
+status = "verificar"
+
+[[debate]]
+id = "2026-presidente-br-t1-band"
+ano = 2026
+turno = 1
+cargo = "presidente"
+uf = "BR"
+emissora = "Band"
+data = "2026-08-23"
+participantes = []
+fontes = ["https://www.youtube.com/watch?v=8ejQOXgiMvI",   # Band Jornalismo
+          "https://www.youtube.com/watch?v=E6raYIQqn0Y"]
+status = "verificar"
+
+[[debate]]
+id = "2026-presidente-br-t2-globo"
+ano = 2026
+turno = 2
+cargo = "presidente"
+uf = "BR"
+emissora = "TV Globo"
+data = "2026-10-23"
+participantes = ["Lula", "Flávio Bolsonaro"]
+fontes = ["https://www.youtube.com/watch?v=KpZc0wfI4Vo",
+          "https://www.youtube.com/watch?v=9J7FBpQDe5g"]
 status = "verificar"

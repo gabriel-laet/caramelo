@@ -152,3 +152,23 @@ def build(data_dir: Path, seeds: Path = SEEDS) -> Path:
           f"({dupes} re-runs dropped, {matched} guests matched to "
           f"parliamentarians) -> {out}")
     return out
+
+
+def archive_order(rows: list[dict]) -> list[str]:
+    """Download order for an interview archive: one episode per year in
+    turn (oldest year first), so a partial run already spans every decade.
+    Within a year, interviews with a sitting parliamentarian come first,
+    then the rest by date."""
+    by_year: dict[int, list[dict]] = {}
+    for r in rows:
+        by_year.setdefault(r["ano"] or 0, []).append(r)
+    for eps in by_year.values():
+        eps.sort(key=lambda r: (r["parlamentar_id"] is None, r["data"] or ""))
+    order, rnd = [], 0
+    while True:
+        batch = [eps[rnd]["video_id"] for _, eps in sorted(by_year.items())
+                 if rnd < len(eps)]
+        if not batch:
+            return order
+        order += batch
+        rnd += 1
