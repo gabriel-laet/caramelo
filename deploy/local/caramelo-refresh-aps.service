@@ -1,0 +1,9 @@
+[Unit]
+Description=Caramelo: refresh APS coverage in the published lake
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Runs from the detached worktree the script maintains (always origin/main)
+ExecStart=%h/.local/share/caramelo-aps/deploy/local/refresh-aps.sh

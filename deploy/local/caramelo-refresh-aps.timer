@@ -1,0 +1,10 @@
+[Unit]
+Description=Caramelo: daily APS refresh after the 09:00 UTC cloud run
+
+[Timer]
+OnCalendar=*-*-* 15:00:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

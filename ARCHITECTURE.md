@@ -159,8 +159,17 @@ table from it.
 | `harvest manchetes` | local | raw pages → archive; `manchetes` (headlines only) |
 | `archive youtube\|instagram\|debates` | local | captions, audio, info.json → archive |
 | `transcribe [--whisper]` | local GPU | per-item JSON → `archive/transcricoes.parquet`, copied to `data/transcricoes.parquet` (published) |
+| `refresh-aps` (via `deploy/local/refresh-aps.sh`) | local network, daily 15:00 UTC timer | `aps_cobertura_pct` rows of `indicadores_municipio` + its manifest entry, uploaded to R2 |
 
 Tables built locally are published from the local machine and carried
 forward by the cloud run through `state.SEED_TABLES`.
+The Health Ministry APS endpoint fails from the cloud harvester (its
+`indicadores` step then keeps the last published APS rows), so
+`deploy/local/refresh-aps.sh` refetches it from this machine: it keeps a
+detached worktree at `~/.local/share/caramelo-aps` on `origin/main`, skips
+while the harvest container is active or the manifest is under 30 min old,
+and uploads only when the APS rows changed. Install with
+`cp deploy/local/caramelo-refresh-aps.* ~/.config/systemd/user/ &&
+systemctl --user enable --now caramelo-refresh-aps.timer`.
 Seeds that need human curation live in `seeds/` (debates, channel and
 account overrides, zeitgeist outlets and GDELT themes).

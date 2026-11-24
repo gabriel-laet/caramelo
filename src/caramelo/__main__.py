@@ -7,6 +7,7 @@ Usage:
     caramelo harvest youtube|instagram|debates|manchetes|gdelt
     caramelo archive youtube|instagram|debates   (local network -> NAS)
     caramelo transcribe [--whisper]              (local GPU)
+    caramelo refresh-aps                         (local network -> R2)
 """
 
 from __future__ import annotations
@@ -112,6 +113,10 @@ def main(argv: list[str] | None = None) -> None:
     pub.add_argument("--target", default=os.environ.get(
         "CARAMELO_PUBLISH_TARGET", "local:data/published"),
         help="local:<dir> or r2 (default: $CARAMELO_PUBLISH_TARGET)")
+
+    sub.add_parser("refresh-aps", help="re-fetch APS coverage into a "
+                   "downloaded indicadores_municipio + manifest (local "
+                   "network; see deploy/local/refresh-aps.sh)")
 
     runall = sub.add_parser(
         "run-all",
@@ -279,6 +284,10 @@ def main(argv: list[str] | None = None) -> None:
         from caramelo.enrich import categorias, llm
         llm.classify_indefinidos(args.data_dir)
         categorias.enrich(args.data_dir)
+    elif args.command == "refresh-aps":
+        import sys
+        from caramelo.aps_local import refresh
+        sys.exit(refresh(args.data_dir))
     elif args.command == "publish":
         from caramelo.publish import publish
         publish(args.data_dir, args.target)
