@@ -261,6 +261,23 @@
   .gh:hover { color: var(--text); background: var(--surface-2); }
   .pick { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: .3rem .75rem; font: inherit; font-size: .86rem; cursor: pointer; max-width: 100%; }
   .pick:hover { border-color: var(--accent); }
+  .feed .it { padding: .65rem 0; border-bottom: 1px solid var(--line); }
+  .feed .it:last-child { border-bottom: 0; }
+  .feed .hd2 { display: flex; flex-wrap: wrap; gap: .35rem .5rem; align-items: baseline; font-size: .84rem; color: var(--muted); }
+  .feed .hd2 a.n { font-weight: 600; color: var(--text); }
+  .feed .tx { margin: .25rem 0 .15rem; white-space: pre-line; overflow-wrap: anywhere; }
+  .feed .mt { font-size: .8rem; color: var(--muted); }
+  .rede { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: .05rem .45rem; border-radius: 4px; background: var(--surface-2); color: var(--text-2); }
+  .termos { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .termos a { border: 1px solid var(--line); border-radius: 999px; padding: .2rem .65rem; color: var(--text); background: var(--surface); font-size: .86rem; }
+  .termos a:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .termos a small { color: var(--muted); margin-left: .25rem; }
+  .fontes { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .84rem; color: var(--text-2); margin: .5rem 0 0; }
+  .fontes .old { color: var(--accent); }
+  .cols { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding-top: .3rem; }
+  .cols span { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; }
+  .cols span:hover { opacity: 1; }
+  .cols-ax { display: flex; justify-content: space-between; font-size: .74rem; color: var(--muted); margin-top: .25rem; }
   .pagebar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: .7rem 0 .2rem; }
   #tray:empty { display: none; }
   #tray .chipx { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; padding: .2rem .65rem; font-size: .8rem; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
@@ -901,8 +918,10 @@ async function viewPolitico(id) {
         <p class="note" style="margin-top:.5rem">${(p.proposicoes_resumo?.por_tipo || []).map(t => `${nf(t.n)} ${esc(t.sigla_tipo)}`).join(" · ")}</p></div>
       <div class="card"><h3>Projetos mais recentes</h3>${billList(bills)}
         ${bills.length ? `<p style="margin-top:.5rem"><a href="#/projetos?deputado=${id}">Todos os projetos →</a></p>` : ""}</div>
-    </div>`;
+    </div>
+    <div class="card" id="midia-card" style="margin-top:1rem"><h3>Redes e mídia</h3><div class="loading">carregando…</div></div>`;
   wireCmpButton();
+  midiaCard("camara", id);
 }
 async function viewSenador(id) {
   loading("carregando senador…");
@@ -936,8 +955,10 @@ async function viewSenador(id) {
       <div class="card"><h3>Cota parlamentar (CEAPS) por ano</h3>${(p.ceaps || []).length ? `<div class="bars">${barRows(p.ceaps, r => String(r.ano), r => r.gasto, brl)}</div>` : '<p class="note">Sem despesas registradas.</p>'}
         <p class="note" style="margin-top:.5rem">${(p.proposicoes_resumo?.por_tipo || []).map(t => `${nf(t.n)} ${esc(t.sigla_tipo)}`).join(" · ")}</p></div>
       <div class="card"><h3>Projetos mais recentes no Senado <a href="#/projetos?casa=senado&senador=${id}" style="font-size:.8rem;font-weight:500">todos →</a></h3>${(p.proposicoes || []).length ? (p.proposicoes || []).map(b => `<div class="bill" style="padding:.45rem 0"><a class="s" href="${esc(b.url || "#")}" target="_blank" rel="noopener">${esc(b.sigla)}</a> <span class="note">${esc(String(b.data_apresentacao || "").slice(0, 10))}${b.situacao_atual ? " · " + esc(b.situacao_atual) : ""}</span><div class="e">${esc(trim(b.ementa, 140))}</div></div>`).join("") : '<p class="note">Sem projetos registrados.</p>'}</div>
-    </div>`;
+    </div>
+    <div class="card" id="midia-card" style="margin-top:1rem"><h3>Redes e mídia</h3><div class="loading">carregando…</div></div>`;
   wireCmpButton();
+  midiaCard("senado", id);
 }
 function billList(bills) {
   if (!bills || !bills.length) return '<p class="note">Nenhum projeto encontrado.</p>';
@@ -1160,6 +1181,35 @@ const cotaRank = casa => async () => {
   return `<p class="note" style="margin-bottom:.6rem">${casa === "senado" ? "Cota para o Exercício da Atividade Parlamentar dos Senadores (CEAPS): valores reembolsados" : "Cota para o Exercício da Atividade Parlamentar (CEAP) da Câmara: valor líquido"} desde 2023. O teto da cota varia por estado (passagens), e mandatos têm durações diferentes: compare também a média por mês.</p>
     ${rankTable(d, [{h: casa === "senado" ? "Senador(a)" : "Deputado(a)", f: link}, {h: "Partido · UF", f: r => esc([r.partido, r.uf].filter(Boolean).join(" · ") || "—")}, {h: "Meses", r: 1, f: r => nf(r.meses)}, {h: "Média/mês", r: 1, f: r => brl(r.gasto / Math.max(1, r.meses))}], "gasto", {h: "Total", f: brl})}`;
 };
+const pessoaCell = casa => r => {
+  const id = casa === "senado" ? (r.senador_id ?? r.parlamentar_id) : (r.deputado_id ?? r.parlamentar_id);
+  return `<a href="#/${casa === "senado" ? "s" : "p"}/${id}">${esc(titleCase(r.nome || "?"))}</a>${casaPill(casa)}`;
+};
+const partUF = {h: "Partido · UF", f: r => esc([r.partido, r.uf].filter(Boolean).join(" · ") || "—")};
+const projetosRank = casa => async () => {
+  const d = await get(`/rankings/projetos?casa=${casa}&limit=50`);
+  const cam = casa === "camara";
+  return `<p class="note" style="margin-bottom:.6rem">${cam ? "Projetos de lei (PL), de lei complementar (PLP), emendas à Constituição (PEC) e decretos legislativos (PDL) apresentados desde 2023, contando só os que a pessoa assina como <b>primeiro autor</b>; a coluna “com coautoria” inclui os que ela assina junto." : "Projetos apresentados no Senado desde 2023 em que a pessoa aparece como autora (PL, PEC, PLP e outros)."} Quantidade não mede importância nem chance de aprovação.</p>
+    ${rankTable(d, [{h: cam ? "Deputado(a)" : "Senador(a)", f: pessoaCell(casa)}, partUF, {h: "PL", r: 1, f: r => nf(r.pl)}, {h: "PEC", r: 1, f: r => nf(r.pec)}, {h: "PLP", r: 1, f: r => nf(r.plp)}].concat(cam ? [{h: "Com coautoria", r: 1, f: r => nf(r.projetos)}] : []), cam ? "primeiro_autor" : "projetos", {h: cam ? "Primeiro autor" : "Projetos", f: v => nf(v)})}`;
+};
+const votacoesRank = (casa, base) => async params => {
+  const menor = params.get("ordem") === "menor";
+  let d = await get(`/rankings/votacoes?casa=${casa}&limit=1000`);
+  if (menor) d = d.slice().reverse();
+  const cam = casa === "camara";
+  return `<div class="pagebar" style="margin:0 0 .7rem">${picker("Ordem", [[base, "Maior participação primeiro"], [base + "?ordem=menor", "Menor participação primeiro"]], menor ? base + "?ordem=menor" : base)}</div>
+    <p class="note" style="margin-bottom:.6rem">${cam ? "Votos registrados em votações nominais do plenário desde 2023, sobre as votações nominais realizadas entre o primeiro e o último voto da pessoa no período (assim suplentes e quem assumiu depois não são contados como ausentes antes de chegar)." : "Votações nominais do plenário desde 2023 em que o senador constava na lista: parcela em que registrou voto (Sim, Não, Abstenção ou voto secreto). O resto inclui ausências, licenças, missões oficiais e “presente sem voto”."} Quem preside a sessão normalmente não vota, e licenças (para ser ministro, por exemplo) contam como ausência aqui. Mínimo de 50 votações.</p>
+    ${rankTable(d.slice(0, 60), [{h: cam ? "Deputado(a)" : "Senador(a)", f: pessoaCell(casa)}, partUF, {h: "Votou", r: 1, f: r => nf(r.votos)}, {h: "Votações", r: 1, f: r => nf(r.listadas)}].concat(cam ? [{h: "Período", f: r => `<span class="note" style="white-space:nowrap">${esc(String(r.desde).slice(0, 7).split("-").reverse().join("/"))}–${esc(String(r.ate).slice(0, 7).split("-").reverse().join("/"))}</span>`}] : []), "participacao", {h: "Participação", f: v => nf(100 * v, 1) + "%"})}
+    <p class="note" style="margin-top:.5rem">${nf(d.length)} parlamentares no total; mostrando 60.</p>`;
+};
+const redesRank = (casa, rede) => async () => {
+  const [d, fontes] = await Promise.all([get(`/rankings/redes?casa=${casa}&rede=${rede}&limit=60`), get("/midia/fontes").catch(() => [])]);
+  const f = fontes.find(x => x.rede === rede);
+  const yt = rede === "youtube";
+  return `<p class="note" style="margin-bottom:.6rem">${yt ? "Inscritos no canal oficial do YouTube que o parlamentar informa à Câmara" : "Seguidores da conta no X (Twitter) ligada ao parlamentar"}, na última coleta. Audiência não mede representatividade: contas antigas e de quem já era famoso antes do mandato tendem a ser maiores.${f && f.ate ? ` Últimos 90 dias contados até ${esc(f.ate.split("-").reverse().join("/"))}.` : ""}</p>
+    ${rankTable(d, [{h: casa === "senado" ? "Senador(a)" : "Deputado(a)", f: pessoaCell(casa)}, partUF, {h: "Conta", f: r => r.handle ? `<a href="${yt ? "https://www.youtube.com/@" : "https://x.com/"}${esc(r.handle)}" target="_blank" rel="noopener">@${esc(r.handle)}</a>` : "—"}, {h: yt ? "Vídeos" : "Posts (total)", r: 1, f: r => nf(r.total)}, {h: "Últimos 90 dias", r: 1, f: r => nf(r.ultimos_90d)}], "seguidores", {h: yt ? "Inscritos" : "Seguidores", f: v => compact(v)})}
+    <p style="margin-top:.6rem"><a href="#/midia?casa=${casa}&rede=${rede}">O que estão publicando →</a></p>`;
+};
 const RANKS = {
   camara_emendas: ["Emendas", autoresRank("camara", "#/pessoas/camara/emendas")],
   camara_cota: ["Cota parlamentar (CEAP)", cotaRank("camara")],
@@ -1188,6 +1238,13 @@ const RANKS = {
     const list = xs => `<div class="bars">${barRows(xs, r => `<a href="#/p/${r.deputado_id}">${esc(r.nome)}</a> <span class="pill">${esc(r.partido || "")}</span>`, r => r.governismo * 100, v => nf(v) + "%")}</div>`;
     return `<p class="note" style="margin-bottom:.6rem">Concordância com a orientação da bancada do Governo (plenário 2023+, mín. 200 votos).</p>
       <div class="grid g2"><div><h3>Mais alinhados</h3>${list(d.slice(0, 15))}</div><div><h3>Menos alinhados</h3>${list(d.slice(-15).reverse())}</div></div>`; }],
+  camara_projetos: ["Projetos apresentados", projetosRank("camara")],
+  senado_projetos: ["Projetos apresentados", projetosRank("senado")],
+  camara_votacoes: ["Participação em votações", votacoesRank("camara", "#/pessoas/camara/votacoes")],
+  senado_votacoes: ["Participação em votações", votacoesRank("senado", "#/pessoas/senado/votacoes")],
+  camara_x: ["Seguidores no X", redesRank("camara", "x")],
+  senado_x: ["Seguidores no X", redesRank("senado", "x")],
+  camara_youtube: ["Inscritos no YouTube", redesRank("camara", "youtube")],
   favorecidos: ["Recebedores", async () => {
     const d = await get("/favorecidos?limit=25");
     return `<p class="note" style="margin-bottom:.6rem">Destinatários finais de emendas (empresas), com CNAE. Bancos públicos aparecem como operadores de repasse.</p><div class="bars">${barRows(d, r => `${esc(trim(r.nome, 40))} <span class="note">${esc(trim(r.atividade || "", 40))}</span>`, r => r.recebido, brl)}</div>`; }],
@@ -1196,8 +1253,8 @@ const RANKS = {
 // ================================================================ PESSOAS
 // Câmara and Senado side by side but never mixed; collective emendas apart.
 const PESSOAS = {
-  camara: {label: "Câmara dos Deputados", subs: {emendas: RANKS.camara_emendas, cota: RANKS.camara_cota, alinhamento: RANKS.governismo, partidos: RANKS.partidos}},
-  senado: {label: "Senado Federal", subs: {emendas: RANKS.senado_emendas, cota: RANKS.senado_cota}},
+  camara: {label: "Câmara dos Deputados", subs: {emendas: RANKS.camara_emendas, cota: RANKS.camara_cota, projetos: RANKS.camara_projetos, votacoes: RANKS.camara_votacoes, alinhamento: RANKS.governismo, partidos: RANKS.partidos, x: RANKS.camara_x, youtube: RANKS.camara_youtube}},
+  senado: {label: "Senado Federal", subs: {emendas: RANKS.senado_emendas, cota: RANKS.senado_cota, projetos: RANKS.senado_projetos, votacoes: RANKS.senado_votacoes, x: RANKS.senado_x}},
   coletivas: {label: "Emendas coletivas", subs: {lista: RANKS.coletivas}},
 };
 async function viewPessoas(casa, sub, params) {
@@ -1206,7 +1263,9 @@ async function viewPessoas(casa, sub, params) {
   sub = P.subs[sub] ? sub : Object.keys(P.subs)[0];
   setCtx([["Pessoas", "#/pessoas"], [P.label, `#/pessoas/${casa}`], [P.subs[sub][0]]]);
   view.innerHTML = `<h1>${esc(P.label)}${casa !== "coletivas" ? casaPill(casa) : ""}</h1>
-    <p class="lede">${casa === "coletivas" ? "Emendas que não têm um único autor." : `Cada emenda conta para a casa em que o autor estava ao votar o Orçamento. Busque ${casa === "senado" ? "um senador" : "um deputado"} no topo; no perfil, “+ Comparar” monta uma comparação.`}</p>
+    <p class="lede">${casa === "coletivas" ? "Emendas que não têm um único autor." : `Rankings de ${casa === "senado" ? "senadores" : "deputados"}: escolha a casa e o critério abaixo. Busque uma pessoa no topo; no perfil, “+ Comparar” monta uma comparação.`}</p>
+    <div class="pagebar">${casa !== "coletivas" ? picker("Casa", [["#/pessoas/camara/" + (PESSOAS.camara.subs[sub] ? sub : "emendas"), "Câmara · deputados"], ["#/pessoas/senado/" + (PESSOAS.senado.subs[sub] ? sub : "emendas"), "Senado · senadores"]], `#/pessoas/${casa}/${sub}`) : ""}
+      ${Object.keys(P.subs).length > 1 ? picker("Ranking", Object.entries(P.subs).map(([k, [l]]) => [`#/pessoas/${casa}/${k}`, l]), `#/pessoas/${casa}/${sub}`) : ""}</div>
     <h2 style="margin-top:1rem">${esc(P.subs[sub][0])}</h2>
     <div class="card" id="rk"><div class="loading">carregando…</div></div>`;
   try { document.getElementById("rk").innerHTML = await P.subs[sub][1](params); }
@@ -1422,6 +1481,96 @@ async function viewBuscaFalas(params) {
     <p class="note" style="margin-top:.6rem">Busca por texto exato (sem acentos) em transcrições automáticas: grafias erradas da transcrição não aparecem.</p>`;
 }
 
+// ================================================================ MÍDIA
+// What parliamentarians publish (X, YouTube) and news about some of them.
+// Counts of words and people only: no tone, sentiment or truth labels.
+const REDE_LBL = {x: "X", youtube: "YouTube", noticias: "Notícia"};
+const fmtD = s => s ? String(s).slice(0, 10).split("-").reverse().join("/") : "";
+function feedItems(d, q) {
+  if (!d.length) return '<p class="note">Nada encontrado com esses filtros.</p>';
+  return `<div class="feed">${d.map(r => {
+    const who = r.parlamentar_id ? `<a class="n" href="#/${r.casa === "senado" ? "s" : "p"}/${r.parlamentar_id}">${esc(titleCase(r.nome || "?"))}</a>${casaPill(r.casa)}` : "";
+    const meta = r.rede === "x" ? [r.n1 != null && `${nf(r.n1)} curtidas`, r.n2 != null && `${nf(r.n2)} reposts`, r.extra === "replied_to" && "resposta", r.extra === "quoted" && "citação"]
+      : r.rede === "youtube" ? [r.n1 != null && `${nf(r.n1)} visualizações`, r.extra === "short" && "short", r.extra === "live" && "ao vivo"]
+      : [r.extra && esc(r.extra), r.parlamentar_id && "menciona " + esc(titleCase(r.nome || ""))];
+    return `<div class="it"><div class="hd2"><span class="rede">${REDE_LBL[r.rede]}</span>${r.rede === "noticias" ? "" : who}${r.partido || r.uf ? `<span>${esc([r.partido, r.uf].filter(Boolean).join(" · "))}</span>` : ""}<span>${fmtD(r.data)}${r.rede === "noticias" ? " (aprox.)" : ""}</span></div>
+      <div class="tx">${hl(trim(r.texto, 420), q)}</div>
+      <div class="mt">${meta.filter(Boolean).join(" · ")}${meta.some(Boolean) ? " · " : ""}<a href="${esc(r.url)}" target="_blank" rel="noopener nofollow">abrir original ↗</a></div></div>`;
+  }).join("")}</div>`;
+}
+function fontesLine(fontes) {
+  const hoje = Date.now();
+  return `<div class="fontes">${fontes.map(f => {
+    const dias = f.ate ? Math.round((hoje - Date.parse(f.ate)) / 864e5) : null;
+    const old = dias != null && dias > 14;
+    return `<span${old ? ' class="old"' : ""}><b>${REDE_LBL[f.rede]}</b> ${nf(f.itens)} itens · ${nf(f.pessoas)} parlamentares · até ${fmtD(f.ate)}${old ? ` (coleta parada há ${nf(dias)} dias)` : ""}</span>`;
+  }).join("")}</div>`;
+}
+async function viewMidia(params) {
+  const q = (params.get("q") || "").trim(), casa = params.get("casa") || "", rede = params.get("rede") || "",
+        dias = params.get("dias") || (q ? "365" : "30"), pid = params.get("id") || "";
+  const hrefWith = (k, v) => { const p = new URLSearchParams(params); v ? p.set(k, v) : p.delete(k); if (k !== "pagina") p.delete("pagina"); return "#/midia?" + p; };
+  const qs = new URLSearchParams({dias}); if (casa) qs.set("casa", casa); if (rede) qs.set("rede", rede); if (q) qs.set("q", q); if (pid) qs.set("parlamentar_id", pid);
+  setCtx([["Redes e mídia"], ["Monitor"]].concat(q ? [[`“${q}”`]] : []), {ai: `Quero analisar o que parlamentares brasileiros publicam${q ? ` sobre “${q}”` : ""}. Feed: https://api.caramelo.dev.br/midia/feed?${qs}. Palavras: https://api.caramelo.dev.br/midia/termos?dias=${dias}. Assunto: https://api.caramelo.dev.br/midia/assunto?q=… Tabelas: ${LAKE}/posts.parquet (X), ${LAKE}/youtube_videos.parquet, ${LAKE}/youtube_stats.parquet, ${LAKE}/media.parquet (notícias), ${LAKE}/x_users.parquet, ${LAKE}/youtube_canais.parquet. Não classifique tom, sentimento ou veracidade; conte e cite as publicações.`});
+  if (q) document.getElementById("q").value = q;
+  const bar = `<div class="pagebar">
+    ${picker("Casa", [[hrefWith("casa", ""), "Câmara e Senado"], [hrefWith("casa", "camara"), "Câmara · deputados"], [hrefWith("casa", "senado"), "Senado · senadores"]], hrefWith("casa", casa))}
+    ${picker("Fonte", [[hrefWith("rede", ""), "Todas as fontes"], [hrefWith("rede", "x"), "Posts no X"], [hrefWith("rede", "youtube"), "Vídeos no YouTube"], [hrefWith("rede", "noticias"), "Notícias"]], hrefWith("rede", rede))}
+    ${picker("Período", [["7", "Últimos 7 dias"], ["30", "Últimos 30 dias"], ["90", "Últimos 90 dias"], ["365", "Último ano"], ["3650", "Tudo"]].map(([v, l]) => [hrefWith("dias", v), l]), hrefWith("dias", dias))}
+    ${q || pid ? `<a class="pick" href="#/midia${casa ? "?casa=" + casa : ""}" style="text-decoration:none">✕ limpar ${q ? "“" + esc(q) + "”" : "pessoa"}</a>` : ""}</div>`;
+  view.innerHTML = `<h1>${q ? `“${esc(q)}” nas redes e na imprensa` : "O que os parlamentares estão publicando"}</h1>
+    <p class="lede">Posts no X e vídeos no YouTube das contas dos próprios deputados e senadores, e notícias sobre parte dos senadores. Aqui só se conta e se mostra: palavras, pessoas, datas e o link para o original. Nada é classificado como bom, ruim, verdadeiro ou falso.</p>
+    ${bar}<div id="fontes"></div>
+    <div id="md-top" style="margin-top:1rem"><div class="loading">carregando…</div></div>
+    <div class="card" style="margin-top:1rem"><h3>${q ? "Publicações e notícias" : "Mais recentes"}</h3><div id="md-feed"><div class="loading">carregando…</div></div><p id="md-more" style="margin-top:.6rem"></p></div>`;
+  get("/midia/fontes").then(f => { const el = document.getElementById("fontes"); if (el) el.innerHTML = fontesLine(f); }).catch(() => {});
+  let off = 0;
+  const loadFeed = async () => {
+    const d = await get(`/midia/feed?limit=40&offset=${off}&${qs}`);
+    const el = document.getElementById("md-feed"); if (!el) return;
+    el.innerHTML = (off ? el.innerHTML : "") + (d.length || !off ? feedItems(d, q) : "");
+    off += d.length;
+    document.getElementById("md-more").innerHTML = d.length === 40 ? `<button class="pick" id="md-btn">Carregar mais</button>` : "";
+    const b = document.getElementById("md-btn"); if (b) b.onclick = () => { b.disabled = true; loadFeed(); };
+  };
+  loadFeed().catch(e => { const el = document.getElementById("md-feed"); if (el) el.innerHTML = `<p class="err">erro (${esc(e.message)})</p>`; });
+  const top = document.getElementById("md-top");
+  try {
+    if (!q) {
+      const t = await get(`/midia/termos?limit=60&dias=${dias}${casa ? "&casa=" + casa : ""}${rede === "x" || rede === "youtube" ? "&rede=" + rede : ""}`);
+      top.innerHTML = `<div class="card"><h3>Palavras usadas por mais parlamentares · ${dias === "3650" ? "todo o período" : `últimos ${dias} dias`}</h3>
+        <p class="note" style="margin-bottom:.6rem">Contamos quantas <b>pessoas diferentes</b> usaram cada palavra (em posts próprios e títulos de vídeos; notícias e reposts ficam de fora), para que uma conta muito ativa não domine a lista. ${nf(t.pessoas || 0)} parlamentares publicaram ${nf(t.itens || 0)} itens no período. Clique numa palavra para ver quem fala dela.</p>
+        ${t.termos.length ? `<div class="termos">${t.termos.map(x => `<a href="${hrefWith("q", x.termo)}" title="${nf(x.pessoas)} parlamentares (${nf(x.camara)} da Câmara, ${nf(x.senado)} do Senado), ${nf(x.usos)} usos">${esc(x.termo)}<small>${nf(x.pessoas)}</small></a>`).join("")}</div>` : '<p class="note">Poucas publicações no período. Tente um período maior.</p>'}</div>`;
+    } else {
+      const a = await get(`/midia/assunto?q=${encodeURIComponent(q)}&dias=${dias}${casa ? "&casa=" + casa : ""}`);
+      const S = a.semanas, mx = Math.max(1, ...S.map(s => s.publicacoes + s.noticias));
+      const tot = S.reduce((s, x) => s + x.publicacoes + x.noticias, 0);
+      top.innerHTML = `<div class="grid g2">
+        <div class="card"><h3>Menções por semana</h3>${S.length ? `<div class="cols" role="img" aria-label="Menções por semana">${S.map(s => `<span style="height:${100 * (s.publicacoes + s.noticias) / mx}%" title="Semana de ${fmtD(s.semana)}: ${nf(s.publicacoes)} publicações, ${nf(s.noticias)} notícias"></span>`).join("")}</div>
+          <div class="cols-ax"><span>${fmtD(S[0].semana)}</span><span>${fmtD(S.at(-1).semana)}</span></div>
+          <p class="note" style="margin-top:.5rem">${nf(tot)} itens: ${a.por_casa.map(c => `${nf(c.itens)} ${REDE_LBL[c.rede]} (${CASA[c.casa] || c.casa}, ${nf(c.pessoas)} pessoas)`).join(" · ")}</p>` : '<p class="note">Nenhuma menção no período.</p>'}
+          ${a.partidos.length ? `<h3 style="margin-top:1rem">Deputados que publicaram, por partido</h3><div class="bars">${barRows(a.partidos, r => esc(r.partido), r => r.pessoas, v => nf(v) + " pessoa(s)")}</div>
+          <p class="note" style="margin-top:.4rem">Partido atual; o Senado não informa partido nos dados abertos que usamos.</p>` : ""}</div>
+        <div class="card"><h3>Quem mais menciona</h3><p class="note" style="margin-bottom:.4rem">Ordenado pelas publicações da própria pessoa; notícias (só sobre 25 senadores, desde jul/2026) vêm à parte.</p>${a.pessoas.length ? `<ol class="rank">${a.pessoas.map((r, i) => `<li><span class="i">${i + 1}</span><a href="${hrefWith("id", r.parlamentar_id)}&casa=${r.casa}">${esc(titleCase(r.nome || "?"))}${casaPill(r.casa)} <span class="note">${esc([r.partido, r.uf].filter(Boolean).join(" · "))}</span></a><span class="v">${r.publicacoes ? nf(r.publicacoes) + " pub." : ""}${r.publicacoes && r.noticias ? " · " : ""}${r.noticias ? nf(r.noticias) + " notícias" : ""}</span></li>`).join("")}</ol>` : '<p class="note">Ninguém no período.</p>'}
+          <p class="note" style="margin-top:.5rem">Busca pelo texto exato (sem acentos), então “saúde” também acha “saudemental” mas não sinônimos. Mencionar não quer dizer apoiar nem criticar.</p></div></div>`;
+    }
+  } catch (e) { top.innerHTML = `<p class="err">erro (${esc(e.message)})</p>`; }
+}
+async function midiaCard(casa, id) {
+  const el = document.getElementById("midia-card"); if (!el) return;
+  let m; try { m = await get(`/midia/pessoa/${casa}/${id}`); } catch { el.innerHTML = '<p class="note">Redes indisponíveis agora.</p>'; return; }
+  const r = Object.fromEntries((m.resumo || []).map(x => [x.rede, x]));
+  if (!m.x && !m.youtube && !(m.itens || []).length && !(m.contas || []).length) { el.innerHTML = `<h3>Redes e mídia</h3><p class="note">Não encontramos contas nem publicações ligadas a esta pessoa.</p>`; return; }
+  el.innerHTML = `<h3>Redes e mídia <a href="#/midia?casa=${casa}&id=${id}&dias=3650" style="font-size:.8rem;font-weight:500">ver tudo →</a></h3>
+    <div class="tiles" style="margin-top:.4rem">
+      ${m.x ? `<div class="tile"><b>${compact(m.x.followers)}</b><span>seguidores no X (<a href="https://x.com/${esc(m.x.handle)}" target="_blank" rel="noopener">@${esc(m.x.handle)}</a>)${r.x ? ` · ${nf(r.x.itens)} posts coletados, o último em ${fmtD(r.x.ultima)}` : ""}</span></div>` : ""}
+      ${m.youtube ? `<div class="tile"><b>${compact(m.youtube.subscribers)}</b><span>inscritos no YouTube${r.youtube ? ` · ${nf(r.youtube.ultimos_90d)} vídeos nos últimos 90 dias` : ""}</span></div>` : ""}
+      ${r.noticias ? `<div class="tile"><b>${nf(r.noticias.itens)}</b><span>notícias encontradas (desde ${fmtD(m.itens.find(i => i.rede === "noticias")?.data) || "jul/2026"})</span></div>` : ""}
+    </div>
+    ${(m.contas || []).length ? `<p class="note" style="margin-top:.5rem">Contas informadas: ${m.contas.map(c => `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.rede)}</a>`).join(" · ")}</p>` : ""}
+    <div style="margin-top:.6rem">${feedItems((m.itens || []).slice(0, 8), "")}</div>`;
+}
+
 // ================================================================ VIEWS
 // One selector picks what you are looking at (map indicator, simulation,
 // people list, bills, data); the search box next to it searches whatever
@@ -1439,6 +1588,10 @@ function buildViews() {
   V.push({id: "falas:debates", grp: "Falas", label: "Debates presidenciais", kw: "debates eleicao presidente candidatos transcricao", href: "#/falas/debates", scope: "fala"});
   V.push({id: "falas:entrevistas", grp: "Falas", label: "Entrevistas (Roda Viva)", kw: "entrevistas roda viva convidados", href: "#/falas/entrevistas", scope: "entrevista"});
   V.push({id: "falas:busca", grp: "Falas", label: "Buscar no que foi dito", kw: "falas transcricoes discursos frases palavra", href: "#/falas/busca", scope: "fala"});
+  V.push({id: "midia", grp: "Redes e mídia", label: "O que estão publicando (monitor)", kw: "redes sociais x twitter youtube noticias imprensa midia posts falas assuntos palavras monitor", href: "#/midia", scope: "midia"});
+  V.push({id: "midia:x", grp: "Redes e mídia", label: "Posts no X", kw: "twitter x posts redes", href: "#/midia?rede=x&dias=3650", scope: "midia"});
+  V.push({id: "midia:youtube", grp: "Redes e mídia", label: "Vídeos no YouTube", kw: "youtube videos canal", href: "#/midia?rede=youtube", scope: "midia"});
+  V.push({id: "midia:noticias", grp: "Redes e mídia", label: "Notícias sobre senadores", kw: "noticias imprensa jornal google news", href: "#/midia?rede=noticias&dias=90", scope: "midia"});
   V.push({id: "projetos:camara", grp: "Projetos de lei", cls: "camara", label: "Projetos da Câmara", kw: "leis proposicoes pl pec", href: "#/projetos", scope: "projeto"});
   V.push({id: "projetos:senado", grp: "Projetos de lei", cls: "senado", label: "Projetos do Senado", kw: "leis proposicoes pl pec", href: "#/projetos?casa=senado", scope: "projeto"});
   V.push({id: "dados:tabelas", grp: "Dados abertos", label: "Todas as tabelas", kw: "parquet tabelas download", href: "#/dados", scope: "tabela"});
@@ -1456,6 +1609,7 @@ const SCOPES = {
   fala: "Buscar no que foi dito (ex.: saneamento, corrupção)…",
   entrevista: "Buscar entrevistado (ex.: Lula, Marina)…",
   trecho: "Procurar nesta transcrição…",
+  midia: "Buscar palavra nas redes (ex.: saneamento, IOF)…",
 };
 let CUR_SCOPE = "municipio";
 function setView(id, scope) {
@@ -1464,6 +1618,7 @@ function setView(id, scope) {
   document.getElementById("viewlbl").textContent = v ? v.label : "Mapa";
   document.getElementById("viewgrp").textContent = v ? v.grp : "";
   CUR_SCOPE = scope === undefined ? v?.scope ?? null : scope;
+  document.getElementById("q").value = "";
   const sb = document.getElementById("sbox"), q = document.getElementById("q");
   sb.hidden = !CUR_SCOPE;
   if (CUR_SCOPE) q.placeholder = SCOPES[CUR_SCOPE];
@@ -1522,7 +1677,10 @@ let PROPOSTAS = null;
     show(`<div class="note" style="padding:.6rem .85rem">buscando…</div>`);
     try {
       let html = "";
-      if (scope === "fala") {
+      if (scope === "midia") {
+        const d = await get("/midia/feed?limit=6&dias=365&q=" + encodeURIComponent(term));
+        html = item(`#/midia?q=${encodeURIComponent(term)}`, `Quem fala de “${esc(term)}”`, "↵") + d.map(r => item(r.url, `${hl(trim(r.texto, 70), term)}`, `${REDE_LBL[r.rede]} · ${esc(trim(titleCase(r.nome || ""), 22))}`)).join("");
+      } else if (scope === "fala") {
         const d = await get("/falas/busca?limit=8&q=" + encodeURIComponent(term));
         html = d.map(r => item(falaHref(r, term), `<span class="note">${fmtT(r.ini)}</span> ${hl(trim(r.text, 80), term)}`, esc(trim(r.titulo, 34)))).join("");
         if (html) html += item(`#/falas/busca?q=${encodeURIComponent(term)}`, `Todas as falas com “${esc(term)}”`, "↵");
@@ -1554,6 +1712,7 @@ let PROPOSTAS = null;
   q.addEventListener("keydown", e => {
     const links = [...box.querySelectorAll("a")];
     if (e.key === "Enter" && CUR_SCOPE === "fala" && sel < 0) { e.preventDefault(); location.hash = `#/falas/busca?q=${encodeURIComponent(q.value.trim())}`; box.hidden = true; return; }
+    if (e.key === "Enter" && CUR_SCOPE === "midia" && sel < 0) { e.preventDefault(); const p = new URLSearchParams(location.hash.split("?")[1] || ""); p.set("q", q.value.trim()); p.delete("id"); location.hash = "#/midia?" + p; box.hidden = true; return; }
     if (e.key === "Enter" && CUR_SCOPE === "trecho") { e.preventDefault(); window.onTrechoNext?.(); return; }
     if (e.key === "Enter" && CUR_SCOPE === "projeto" && sel < 0) { e.preventDefault(); location.hash = `#/projetos?${CUR_VIEW === "projetos:senado" ? "casa=senado&" : ""}q=${encodeURIComponent(q.value.trim())}`; box.hidden = true; return; }
     if (box.hidden || !links.length) return;
@@ -1593,6 +1752,7 @@ function route() {
     projetos: [params.get("casa") === "senado" ? "projetos:senado" : "projetos:camara"], b: ["projetos:camara", "projeto"],
     dados: [parts[1] === "panoramas" ? "dados:pan:" + (PANORAMAS[parts[2]] ? parts[2] : "categorias") : parts[1] === "dev" ? "dados:dev" : "dados:tabelas"],
     t: ["dados:tabelas", "tabela"],
+    midia: [params.get("rede") && !params.get("q") && !params.get("id") ? "midia:" + params.get("rede") : "midia"],
     falas: [parts[1] === "entrevistas" ? "falas:entrevistas" : parts[1] === "busca" || parts[1] === "v" ? "falas:busca" : "falas:debates"],
   }[top] || [mapView];
   setView(vid, scope);
@@ -1607,6 +1767,7 @@ function route() {
   if (top === "pessoas") return viewPessoas(parts[1], parts[2], params);
   if (top === "comparar") return viewComparar();
   if (top === "dados") return viewDados(parts[1] || "", parts[2], params);
+  if (top === "midia") return viewMidia(params);
   if (top === "falas") {
     window.onTrecho = window.onTrechoNext = null;
     if (parts[1] === "d") return viewDebate(parts[2], params);

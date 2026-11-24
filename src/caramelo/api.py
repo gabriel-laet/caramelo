@@ -286,3 +286,78 @@ def proposicao(proposicao_id: int) -> dict:
     if not result:
         raise HTTPException(404, "proposição não encontrada")
     return result
+
+
+# ---------------------------------------------------------------- mídia
+
+@app.get("/midia/feed", operation_id="midia_feed",
+         summary="What parliamentarians post (X, YouTube) and news about "
+                 "them, newest first")
+def midia_feed(rede: str | None = Query(None, pattern="^(x|youtube|noticias)$"),
+               casa: str | None = Query(None, pattern="^(camara|senado)$"),
+               parlamentar_id: int | None = None, partido: str | None = None,
+               q: str | None = None, dias: int | None = Query(None, le=3650),
+               limit: int = Query(60, le=500), offset: int = 0) -> list[dict]:
+    return domain.midia_feed(lake(), rede=rede, casa=casa,
+                             parlamentar_id=parlamentar_id, partido=partido,
+                             q=q, dias=dias, limit=limit, offset=offset)
+
+
+@app.get("/midia/fontes", operation_id="midia_fontes",
+         summary="Coverage (items, people, dates) of each media source")
+def midia_fontes() -> list[dict]:
+    return domain.midia_fontes(lake())
+
+
+@app.get("/midia/termos", operation_id="midia_termos",
+         summary="Words used by the most different parliamentarians in "
+                 "the last N days")
+def midia_termos(dias: int = Query(30, ge=1, le=3650),
+                 casa: str | None = Query(None, pattern="^(camara|senado)$"),
+                 rede: str | None = Query(None, pattern="^(x|youtube)$"),
+                 limit: int = Query(40, le=200)) -> dict:
+    return domain.midia_termos(lake(), dias=dias, casa=casa, rede=rede,
+                               limit=limit)
+
+
+@app.get("/midia/assunto", operation_id="midia_assunto",
+         summary="Who mentions a word, and when (counts by week, house, "
+                 "party and person)")
+def midia_assunto(q: str = Query(..., min_length=3),
+                  dias: int | None = Query(365, le=3650),
+                  casa: str | None = Query(None, pattern="^(camara|senado)$")) -> dict:
+    return domain.midia_assunto(lake(), q, dias=dias, casa=casa)
+
+
+@app.get("/midia/pessoa/{casa}/{parlamentar_id}", operation_id="midia_pessoa",
+         summary="One parliamentarian's accounts, audience and recent items")
+def midia_pessoa(casa: str, parlamentar_id: int) -> dict:
+    if casa not in ("camara", "senado"):
+        raise HTTPException(404)
+    return domain.midia_pessoa(lake(), casa, parlamentar_id)
+
+
+@app.get("/rankings/projetos", operation_id="ranking_projetos",
+         summary="Bills authored per parliamentarian since ano_min")
+def ranking_projetos(casa: str = Query("camara", pattern="^(camara|senado)$"),
+                     ano_min: int = 2023,
+                     limit: int = Query(600, le=1000)) -> list[dict]:
+    return domain.ranking_projetos(lake(), casa=casa, ano_min=ano_min,
+                                   limit=limit)
+
+
+@app.get("/rankings/votacoes", operation_id="ranking_votacoes",
+         summary="Roll-call participation per parliamentarian")
+def ranking_votacoes(casa: str = Query("camara", pattern="^(camara|senado)$"),
+                     ano_min: int = 2023,
+                     limit: int = Query(600, le=1000)) -> list[dict]:
+    return domain.ranking_votacoes(lake(), casa=casa, ano_min=ano_min,
+                                   limit=limit)
+
+
+@app.get("/rankings/redes", operation_id="ranking_redes",
+         summary="Audience and activity on X or YouTube per parliamentarian")
+def ranking_redes(casa: str = Query("camara", pattern="^(camara|senado)$"),
+                  rede: str = Query("x", pattern="^(x|youtube)$"),
+                  limit: int = Query(600, le=1000)) -> list[dict]:
+    return domain.ranking_redes(lake(), casa=casa, rede=rede, limit=limit)

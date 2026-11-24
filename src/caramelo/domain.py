@@ -1202,3 +1202,378 @@ def proposicao(lake: Lake, proposicao_id: int) -> dict:
             FROM {lake.table('votacoes')} WHERE proposicao_id = ?
             ORDER BY data DESC""", [proposicao_id]),
     }
+
+
+# ---------------------------------------------------------------- Mídia
+# What parliamentarians publish (X posts, YouTube videos) and what the
+# press writes about some of them (Google News). Everything is a pointer
+# to the original item with its date and source; nothing here scores or
+# labels what was said.
+
+def _quem(lake: Lake) -> str:
+    """casa, parlamentar_id -> nome, partido, uf (latest legislature)."""
+    dep = (f"""SELECT 'camara' AS casa, id AS parlamentar_id,
+                      max_by(nome, legislatura) AS nome,
+                      max_by(partido, legislatura) AS partido,
+                      max_by(uf, legislatura) AS uf
+               FROM {lake.table('deputados')} GROUP BY id"""
+           if lake.has("deputados") else
+           "SELECT NULL::VARCHAR casa, NULL::BIGINT parlamentar_id, NULL::VARCHAR nome, NULL::VARCHAR partido, NULL::VARCHAR uf WHERE false")
+    sen = (f"""SELECT 'senado', codigo, max_by(nome_parlamentar, legislatura),
+                      NULL, max_by(uf, legislatura)
+               FROM {lake.table('senadores')} GROUP BY codigo"""
+           if lake.has("senadores") else
+           "SELECT NULL, NULL, NULL, NULL, NULL WHERE false")
+    return f"({dep} UNION ALL {sen})"
+
+
+def _noticias(lake: Lake) -> str:
+    """Google News results about a parliamentarian, one row per link, with
+    an approximate date from the relative "há 3 dias" the search shows."""
+    return f"""(
+        WITH n AS (
+            SELECT m.*, c.senador_id, c.deputado_id,
+                   regexp_extract(m.date_raw, '(\\d+)', 1) AS k,
+                   strptime(substr(m.fetched_at, 1, 19), '%Y-%m-%dT%H:%M:%S') AS f
+            FROM {lake.table('media')} m
+            LEFT JOIN {lake.table('autores_crosswalk')} c USING (nome_autor)
+            WHERE m.engine = 'google_news')
+        SELECT link, any_value(title) AS title, any_value(source) AS source,
+               any_value(snippet) AS snippet,
+               any_value(CASE WHEN senador_id IS NOT NULL THEN 'senado'
+                              WHEN deputado_id IS NOT NULL THEN 'camara' END) AS casa,
+               any_value(coalesce(senador_id, deputado_id)) AS parlamentar_id,
+               any_value(nome_autor) AS nome_autor,
+               min(CASE
+                 WHEN date_raw LIKE '%hora%' OR date_raw LIKE '%minuto%' THEN f
+                 WHEN date_raw LIKE '%dia%' THEN f - to_days(coalesce(TRY_CAST(k AS INT), 1))
+                 WHEN date_raw LIKE '%semana%' THEN f - to_days(7 * coalesce(TRY_CAST(k AS INT), 1))
+                 WHEN date_raw LIKE '%m_s%' THEN f - to_days(30 * coalesce(TRY_CAST(k AS INT), 1))
+                 ELSE TRY_CAST(try_strptime(date_raw, '%d/%m/%Y') AS TIMESTAMP)
+               END) AS quando
+        FROM n GROUP BY link)"""
+
+
+def _itens(lake: Lake, redes: tuple[str, ...]) -> str:
+    """X posts, YouTube videos and news as one stream:
+    rede, item_id, casa, parlamentar_id, data, texto, extra, url, n1, n2."""
+    parts = []
+    if "x" in redes and lake.has("posts"):
+        parts.append(f"""
+            SELECT 'x' AS rede, post_id AS item_id, casa, parlamentar_id,
+                   CAST(substr(created_at, 1, 19) AS TIMESTAMP) AS data,
+                   text AS texto, ref_type AS extra,
+                   'https://x.com/' || handle || '/status/' || post_id AS url,
+                   likes AS n1, retweets AS n2
+            FROM {lake.table('posts')}
+            WHERE coalesce(ref_type, '') <> 'retweeted'""")
+    if "youtube" in redes and lake.has("youtube_videos"):
+        views = (f"""LEFT JOIN (SELECT video_id, max_by(views, fetched_at) AS views,
+                                       max_by(likes, fetched_at) AS likes
+                                FROM {lake.table('youtube_stats')} GROUP BY 1) s
+                     USING (video_id)""" if lake.has("youtube_stats")
+                 else "LEFT JOIN (SELECT NULL video_id, NULL::BIGINT views, NULL::BIGINT likes) s USING (video_id)")
+        parts.append(f"""
+            SELECT 'youtube', video_id, casa, parlamentar_id,
+                   CAST(substr(published_at, 1, 19) AS TIMESTAMP),
+                   title, CASE WHEN is_short THEN 'short'
+                               WHEN is_live THEN 'live' END,
+                   'https://www.youtube.com/watch?v=' || video_id,
+                   s.views, s.likes
+            FROM {lake.table('youtube_videos')} v {views}
+            WHERE casa IN ('camara', 'senado')""")
+    if "noticias" in redes and lake.has("media") and lake.has("autores_crosswalk"):
+        parts.append(f"""
+            SELECT 'noticias', link, casa, parlamentar_id, quando, title,
+                   source, link, NULL, NULL
+            FROM {_noticias(lake)} WHERE casa IS NOT NULL""")
+    if not parts:
+        return ("(SELECT NULL::VARCHAR rede, NULL::VARCHAR item_id, NULL::VARCHAR casa, "
+                "NULL::BIGINT parlamentar_id, NULL::TIMESTAMP data, NULL::VARCHAR texto, "
+                "NULL::VARCHAR extra, NULL::VARCHAR url, NULL::BIGINT n1, NULL::BIGINT n2 WHERE false)")
+    return ("(SELECT * FROM (" + " UNION ALL ".join(parts) + ") u(rede, item_id, "
+            "casa, parlamentar_id, data, texto, extra, url, n1, n2))")
+
+
+REDES = ("x", "youtube", "noticias")
+
+
+def _filtros(casa, parlamentar_id, partido, q, dias) -> tuple[str, list]:
+    w, p = ["true"], []
+    if casa:
+        w.append("i.casa = ?"); p.append(casa)
+    if parlamentar_id:
+        w.append("i.parlamentar_id = ?"); p.append(parlamentar_id)
+    if partido:
+        w.append("upper(w.partido) = upper(?)"); p.append(partido)
+    if q:
+        w.append("strip_accents(lower(i.texto)) LIKE strip_accents(lower(?))")
+        p.append(f"%{q}%")
+    if dias:
+        w.append("i.data >= current_timestamp::TIMESTAMP - to_days(?)")
+        p.append(int(dias))
+    return " AND ".join(w), p
+
+
+def midia_feed(lake: Lake, *, rede: str | None = None, casa: str | None = None,
+               parlamentar_id: int | None = None, partido: str | None = None,
+               q: str | None = None, dias: int | None = None,
+               limit: int = 60, offset: int = 0) -> list[dict]:
+    """Newest items first: what each parliamentarian posted on X or YouTube,
+    and news that mention them. Retweets are left out (not their words)."""
+    redes = (rede,) if rede in REDES else REDES
+    where, params = _filtros(casa, parlamentar_id, partido, q, dias)
+    return lake.q(f"""
+        SELECT i.rede, i.item_id, i.casa, i.parlamentar_id,
+               coalesce(w.nome, '') AS nome, w.partido, w.uf,
+               strftime(i.data, '%Y-%m-%dT%H:%M') AS data, i.texto, i.extra,
+               i.url, i.n1, i.n2
+        FROM {_itens(lake, redes)} i
+        LEFT JOIN {_quem(lake)} w USING (casa, parlamentar_id)
+        WHERE {where} AND i.data IS NOT NULL
+        ORDER BY i.data DESC LIMIT ? OFFSET ?""", [*params, limit, offset])
+
+
+def midia_fontes(lake: Lake) -> list[dict]:
+    """Coverage of each media source: items, people, first/last date."""
+    out = []
+    for rede in REDES:
+        r = lake.q(f"""
+            SELECT ? AS rede, count(*) AS itens,
+                   count(DISTINCT casa || parlamentar_id) AS pessoas,
+                   strftime(min(data), '%Y-%m-%d') AS desde,
+                   strftime(max(data), '%Y-%m-%d') AS ate
+            FROM {_itens(lake, (rede,))} i""", [rede])
+        out.extend(r)
+    return out
+
+
+_STOP = set("""
+a ao aos as ate com como da das de dei del dela dele deles depois do dos e
+ela ele eles em entre era essa esse esta este estao estou eu foi foram ha
+isso isto ja la lhe mais mas me mesmo meu minha muito na nao nas nem no nos
+nossa nosso o os ou para pela pelas pelo pelos por pra qual quando que quem
+se sem ser seu seus si so sua suas tambem te tem ter todo toda todos todas
+tu um uma umas uns vai vamos voce voces aqui agora hoje ontem amanha bem
+sobre ainda sempre onde porque cada outro outra outros outras fazer feito
+pode podem vai vao sao seja sejam tudo nada essa esses essas aquele aquela
+deputado deputada federal senador senadora camara senado brasil https http
+www com video videos live ao vivo assista confira acompanhe link canal
+inscreva sessao reuniao dia dias ano anos hoje parte vez obrigado obrigada
+boa bom dia noite tarde grande todos sobre contra apos durante desde vem
+falar fala disse sera seria estamos estar esta estava tenho temos tinha
+quer precisa precisamos sendo nunca menos muita muitas muitos mesma melhor
+maior novo nova novos novas assim entao faz dessa desse desta deste nesta
+neste nessa nesse deve devem pessoas gente coisa coisas veja olha sabe
+antes acabou comecou chegou lado caso news aqui assim ficar fica ficou mostra
+""".split())
+
+
+def midia_termos(lake: Lake, *, dias: int = 30, casa: str | None = None,
+                 rede: str | None = None, limit: int = 40) -> dict:
+    """Words used by the most different parliamentarians in the period
+    (their own posts and video titles; news excluded). Counting people,
+    not items, keeps one prolific account from setting the list."""
+    redes = (rede,) if rede in ("x", "youtube") else ("x", "youtube")
+    where, params = _filtros(casa, None, None, None, dias)
+    stop = ", ".join(f"'{w}'" for w in sorted(_STOP))
+    rows = lake.q(f"""
+        WITH t AS (
+            SELECT i.casa, i.parlamentar_id, i.rede,
+                   unnest(regexp_split_to_array(
+                       strip_accents(lower(i.texto)), '[^a-z0-9]+')) AS termo
+            FROM {_itens(lake, redes)} i WHERE {where})
+        SELECT termo, count(DISTINCT casa || parlamentar_id) AS pessoas,
+               count(*) AS usos,
+               count(DISTINCT casa || parlamentar_id) FILTER (casa = 'camara') AS camara,
+               count(DISTINCT casa || parlamentar_id) FILTER (casa = 'senado') AS senado
+        FROM t
+        WHERE length(termo) >= 4 AND NOT regexp_matches(termo, '^[0-9]+$')
+          AND termo NOT IN ({stop})
+        GROUP BY 1 HAVING count(DISTINCT casa || parlamentar_id) >= 3
+        ORDER BY pessoas DESC, usos DESC LIMIT ?""", [*params, limit])
+    base = lake.q(f"""
+        SELECT count(DISTINCT casa || parlamentar_id) AS pessoas, count(*) AS itens
+        FROM {_itens(lake, redes)} i WHERE {where}""", params)
+    return {"dias": dias, **(base[0] if base else {}), "termos": rows}
+
+
+def midia_assunto(lake: Lake, q: str, *, dias: int | None = 365,
+                  casa: str | None = None) -> dict:
+    """Who mentions a word, and when: items by week and by house, people
+    and parties that used it most. Counts only — no reading of tone."""
+    where, params = _filtros(casa, None, None, q, dias)
+    src = f"""(SELECT i.*, w.nome, w.partido, w.uf
+               FROM {_itens(lake, REDES)} i
+               LEFT JOIN {_quem(lake)} w USING (casa, parlamentar_id)
+               WHERE {where} AND i.data IS NOT NULL)"""
+    return {
+        "q": q, "dias": dias,
+        "semanas": lake.q(f"""
+            SELECT strftime(date_trunc('week', data), '%Y-%m-%d') AS semana,
+                   count(*) FILTER (rede <> 'noticias') AS publicacoes,
+                   count(*) FILTER (rede = 'noticias') AS noticias
+            FROM {src} GROUP BY 1 ORDER BY 1""", params),
+        "por_casa": lake.q(f"""
+            SELECT casa, rede, count(*) AS itens,
+                   count(DISTINCT parlamentar_id) AS pessoas
+            FROM {src} GROUP BY ALL ORDER BY itens DESC""", params),
+        "partidos": lake.q(f"""
+            SELECT partido, count(*) AS itens,
+                   count(DISTINCT parlamentar_id) AS pessoas
+            FROM {src} WHERE casa = 'camara' AND rede <> 'noticias'
+              AND partido IS NOT NULL
+            GROUP BY 1 ORDER BY pessoas DESC, itens DESC LIMIT 20""", params),
+        "pessoas": lake.q(f"""
+            SELECT casa, parlamentar_id, any_value(nome) AS nome,
+                   any_value(partido) AS partido, any_value(uf) AS uf,
+                   count(*) FILTER (rede <> 'noticias') AS publicacoes,
+                   count(*) FILTER (rede = 'noticias') AS noticias,
+                   strftime(max(data), '%Y-%m-%d') AS ultima
+            FROM {src} GROUP BY 1, 2
+            ORDER BY publicacoes DESC, noticias DESC LIMIT 30""", params),
+    }
+
+
+def midia_pessoa(lake: Lake, casa: str, parlamentar_id: int) -> dict:
+    """One parliamentarian's public accounts, audience and recent items."""
+    contas = (lake.q(f"""
+        SELECT rede, handle, url FROM {lake.table('redes_sociais')}
+        WHERE casa = ? AND parlamentar_id = ? ORDER BY rede""",
+        [casa, parlamentar_id]) if lake.has("redes_sociais") else [])
+    x = (lake.q(f"""
+        SELECT handle, followers, tweets_total FROM {lake.table('x_users')}
+        WHERE casa = ? AND parlamentar_id = ? ORDER BY followers DESC LIMIT 1""",
+        [casa, parlamentar_id]) if lake.has("x_users") else [])
+    yt = (lake.q(f"""
+        SELECT channel_id, handle, title, subscribers, video_count
+        FROM {lake.table('youtube_canais')}
+        WHERE casa = ? AND parlamentar_id = ?
+        ORDER BY subscribers DESC NULLS LAST LIMIT 1""",
+        [casa, parlamentar_id]) if lake.has("youtube_canais") else [])
+    resumo = lake.q(f"""
+        SELECT rede, count(*) AS itens,
+               count(*) FILTER (data >= current_timestamp::TIMESTAMP - INTERVAL 90 DAY) AS ultimos_90d,
+               strftime(max(data), '%Y-%m-%d') AS ultima
+        FROM {_itens(lake, REDES)} i
+        WHERE casa = ? AND parlamentar_id = ? GROUP BY 1""",
+        [casa, parlamentar_id])
+    return {"contas": contas, "x": x[0] if x else None,
+            "youtube": yt[0] if yt else None, "resumo": resumo,
+            "itens": midia_feed(lake, casa=casa,
+                                parlamentar_id=parlamentar_id, limit=30)}
+
+
+# ---------------------------------------------------------------- more rankings
+
+def ranking_projetos(lake: Lake, *, casa: str = "camara", ano_min: int = 2023,
+                     limit: int = 600) -> list[dict]:
+    """Bills each parliamentarian authored since `ano_min`: as first author
+    and as any co-author, with the count of PL / PEC / PLP."""
+    if casa == "senado":
+        if not lake.has("senado_proposicoes_autores"):
+            return []
+        return lake.q(f"""
+            SELECT a.codigo_senador AS senador_id,
+                   any_value(a.nome_senador) AS nome, NULL AS partido,
+                   any_value(a.uf) AS uf,
+                   count(DISTINCT a.id_processo) AS projetos,
+                   count(DISTINCT a.id_processo) FILTER (p.sigla_tipo = 'PL') AS pl,
+                   count(DISTINCT a.id_processo) FILTER (p.sigla_tipo = 'PEC') AS pec,
+                   count(DISTINCT a.id_processo) FILTER (p.sigla_tipo = 'PLP') AS plp
+            FROM {lake.table('senado_proposicoes_autores')} a
+            JOIN {lake.table('senado_proposicoes')} p ON p.id = a.id_processo
+            WHERE TRY_CAST(p.ano AS INT) >= ? AND a.codigo_senador IS NOT NULL
+            GROUP BY 1 ORDER BY projetos DESC LIMIT ?""", [ano_min, limit])
+    return lake.q(f"""
+        SELECT a.id_deputado AS deputado_id, any_value(a.nome_autor) AS nome,
+               max_by(a.partido, p.data_apresentacao) AS partido,
+               max_by(a.uf, p.data_apresentacao) AS uf,
+               count(DISTINCT p.id) FILTER (a.ordem_assinatura <= 1) AS primeiro_autor,
+               count(DISTINCT p.id) AS projetos,
+               count(DISTINCT p.id) FILTER (p.sigla_tipo = 'PL') AS pl,
+               count(DISTINCT p.id) FILTER (p.sigla_tipo = 'PEC') AS pec,
+               count(DISTINCT p.id) FILTER (p.sigla_tipo = 'PLP') AS plp
+        FROM {lake.table('proposicoes_autores')} a
+        JOIN {lake.table('proposicoes')} p ON p.id = a.id_proposicao
+        WHERE p.ano >= ? AND a.id_deputado IS NOT NULL
+          AND p.sigla_tipo IN ('PL', 'PEC', 'PLP', 'PDL')
+        GROUP BY 1 ORDER BY primeiro_autor DESC, projetos DESC LIMIT ?""",
+        [ano_min, limit])
+
+
+def ranking_votacoes(lake: Lake, *, casa: str = "camara", ano_min: int = 2023,
+                     limit: int = 600) -> list[dict]:
+    """Roll-call participation since `ano_min`. Câmara: plenário votes cast
+    over plenário roll calls held between the deputy's first and last vote
+    (so suplentes and late arrivals are not counted against). Senado: share
+    of the roll calls the senator was listed in where a vote was recorded."""
+    if casa == "senado":
+        if not lake.has("senado_votos"):
+            return []
+        return lake.q(f"""
+            SELECT senador_id, any_value(senador_nome) AS nome, NULL AS partido,
+                   (SELECT max_by(uf, legislatura) FROM {lake.table('senadores')}
+                    WHERE codigo = v.senador_id) AS uf,
+                   count(*) AS listadas,
+                   count(*) FILTER (voto IN ('Sim', 'Não', 'Abstenção', 'Votou', 'Obstrução')) AS votos,
+                   round(count(*) FILTER (voto IN ('Sim', 'Não', 'Abstenção', 'Votou', 'Obstrução'))
+                         / count(*), 4) AS participacao
+            FROM {lake.table('senado_votos')} v
+            WHERE TRY_CAST(substr(data_sessao, 1, 4) AS INT) >= ?
+            GROUP BY 1 HAVING count(*) >= 50
+            ORDER BY participacao DESC, votos DESC LIMIT ?""", [ano_min, limit])
+    return lake.q(f"""
+        WITH plen AS (
+            SELECT id, CAST(data AS DATE) AS d FROM {lake.table('votacoes')}
+            WHERE sigla_orgao = 'PLEN' AND ano >= ?
+              AND id IN (SELECT DISTINCT id_votacao FROM {lake.table('votos')})),
+        dep AS (
+            SELECT v.deputado_id, max_by(v.partido, v.data_hora_voto) AS partido,
+                   max_by(v.uf, v.data_hora_voto) AS uf, count(*) AS votos,
+                   min(plen.d) AS d0, max(plen.d) AS d1
+            FROM {lake.table('votos')} v JOIN plen ON plen.id = v.id_votacao
+            GROUP BY 1)
+        SELECT dep.deputado_id,
+               (SELECT max_by(nome, legislatura) FROM {lake.table('deputados')}
+                WHERE id = dep.deputado_id) AS nome,
+               dep.partido, dep.uf, dep.votos,
+               (SELECT count(*) FROM plen WHERE plen.d BETWEEN dep.d0 AND dep.d1) AS listadas,
+               round(dep.votos / (SELECT count(*) FROM plen WHERE plen.d BETWEEN dep.d0 AND dep.d1), 4)
+                 AS participacao,
+               strftime(dep.d0, '%Y-%m-%d') AS desde, strftime(dep.d1, '%Y-%m-%d') AS ate
+        FROM dep WHERE dep.votos >= 50
+        ORDER BY participacao DESC, votos DESC LIMIT ?""", [ano_min, limit])
+
+
+def ranking_redes(lake: Lake, *, casa: str = "camara", rede: str = "x",
+                  limit: int = 600) -> list[dict]:
+    """Audience and activity on X or YouTube, by parliamentarian."""
+    quem = _quem(lake)
+    if rede == "youtube":
+        if not lake.has("youtube_canais"):
+            return []
+        return lake.q(f"""
+            SELECT c.parlamentar_id, coalesce(w.nome, c.nome) AS nome,
+                   w.partido, w.uf, c.handle, c.subscribers AS seguidores,
+                   c.video_count AS total,
+                   (SELECT count(*) FROM {lake.table('youtube_videos')} v
+                    WHERE v.channel_id = c.channel_id AND
+                          v.published_at >= strftime(current_date - 90, '%Y-%m-%d')) AS ultimos_90d
+            FROM {lake.table('youtube_canais')} c
+            LEFT JOIN {quem} w ON w.casa = c.casa AND w.parlamentar_id = c.parlamentar_id
+            WHERE c.casa = ? AND c.parlamentar_id IS NOT NULL
+            ORDER BY seguidores DESC NULLS LAST LIMIT ?""", [casa, limit])
+    if not lake.has("x_users"):
+        return []
+    return lake.q(f"""
+        SELECT u.parlamentar_id, coalesce(w.nome, u.nome) AS nome,
+               w.partido, w.uf, u.handle, u.followers AS seguidores,
+               u.tweets_total AS total,
+               (SELECT count(*) FROM {lake.table('posts')} p
+                WHERE p.user_id = u.user_id AND coalesce(p.ref_type, '') <> 'retweeted'
+                  AND p.created_at >= strftime(current_date - 90, '%Y-%m-%d')) AS ultimos_90d
+        FROM {lake.table('x_users')} u
+        LEFT JOIN {quem} w ON w.casa = u.casa AND w.parlamentar_id = u.parlamentar_id
+        WHERE u.casa = ? AND u.parlamentar_id IS NOT NULL
+        ORDER BY seguidores DESC NULLS LAST LIMIT ?""", [casa, limit])
